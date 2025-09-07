@@ -51,28 +51,30 @@ dependencies {
     // Health Connect
 
     // Room for database storage
-    implementation("androidx.room:room-runtime:2.6.1")
+    implementation(libs.androidx.room.runtime)
     //kapt("androidx.room:room-compiler:2.6.1")
-    implementation("androidx.room:room-ktx:2.6.1")
+    implementation(libs.androidx.room.ktx)
 
     // WorkManager for background sync
-    implementation("androidx.work:work-runtime-ktx:2.9.1")
+    implementation(libs.androidx.work.runtime.ktx)
 
     // Jetpack Compose (if using Compose UI)
-    implementation(platform("androidx.compose:compose-bom:2025.01.00"))
-    implementation("androidx.compose.ui:ui")
-    implementation("androidx.compose.material3:material3")
-    implementation("androidx.compose.ui:ui-tooling-preview")
-    debugImplementation("androidx.compose.ui:ui-tooling")
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.ui)
+    implementation(libs.material3)
+    implementation(libs.androidx.ui.tooling.preview)
+    debugImplementation(libs.androidx.ui.tooling)
 
     // Coroutines
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+    implementation(libs.kotlinx.coroutines.android)
 
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.6") // or latest stable
-    implementation("androidx.health.connect:connect-client:1.2.0-alpha01")
+    implementation(libs.androidx.lifecycle.runtime.ktx) // or latest stable
 
     //implementation(fileTree(mapOf("dir" to "libs", "include" to "health-data-api-1.0.0.aar")))
     implementation(files("libs/samsung-health-data-api-1.0.0.aar"))
-    implementation ("com.google.code.gson:gson:2.9.0")
+    implementation (libs.gson)
 
+
+    implementation("com.squareup.retrofit2:retrofit:3.0.0")
+    implementation("com.squareup.retrofit2:converter-gson:3.0.0")
 }

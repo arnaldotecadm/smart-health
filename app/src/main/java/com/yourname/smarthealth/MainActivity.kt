@@ -1,82 +1,59 @@
 package com.yourname.smarthealth
 
 import android.app.Activity
-import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.widget.Button
-import android.widget.Toast
-import androidx.activity.result.contract.ActivityResultContract
 import androidx.appcompat.app.AppCompatActivity
-import androidx.compose.material3.Button
-import androidx.health.connect.client.HealthConnectClient
-import androidx.health.connect.client.PermissionController
-import androidx.health.connect.client.permission.HealthPermission
-import androidx.health.connect.client.records.StepsRecord
-import androidx.health.connect.client.request.ReadRecordsRequest
-import androidx.health.connect.client.time.TimeRangeFilter
 import androidx.lifecycle.lifecycleScope
+import com.google.gson.ExclusionStrategy
+import com.google.gson.FieldAttributes
+import com.google.gson.GsonBuilder
 import com.samsung.android.sdk.health.data.HealthDataService
-import com.samsung.android.sdk.health.data.HealthDataStore
+import com.samsung.android.sdk.health.data.data.AggregateOperation
+import com.samsung.android.sdk.health.data.data.DataPoint
+import com.samsung.android.sdk.health.data.data.HealthDataPoint
+import com.samsung.android.sdk.health.data.data.entries.ExerciseSession
 import com.samsung.android.sdk.health.data.error.HealthDataException
 import com.samsung.android.sdk.health.data.error.ResolvablePlatformException
 import com.samsung.android.sdk.health.data.permission.AccessType
 import com.samsung.android.sdk.health.data.permission.Permission
+import com.samsung.android.sdk.health.data.request.AggregateRequest
+import com.samsung.android.sdk.health.data.request.DataType
 import com.samsung.android.sdk.health.data.request.DataTypes
 import com.samsung.android.sdk.health.data.request.LocalTimeFilter
-import com.samsung.android.sdk.health.data.request.Ordering
-import com.yourname.smarthealth.data.HealthConnectManager
-import kotlinx.coroutines.launch
-import java.time.Instant
-import java.time.LocalDateTime
-import java.time.ZonedDateTime
-import java.time.temporal.ChronoUnit
-import com.samsung.android.sdk.health.data.*
-import com.samsung.android.sdk.health.data.request.DataType
 import com.samsung.android.sdk.health.data.request.LocalTimeGroup
 import com.samsung.android.sdk.health.data.request.LocalTimeGroupUnit
-
+import com.samsung.android.sdk.health.data.request.Ordering
+import com.samsung.android.sdk.health.data.request.ReadDataRequest
+import com.yourname.smarthealth.adapter.DurationAdapter
+import com.yourname.smarthealth.adapter.InstantAdapter
+import com.yourname.smarthealth.adapter.ZoneOffsetAdapter
+import com.yourname.smarthealth.service.ApiService
+import kotlinx.coroutines.launch
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
+import java.time.Duration
+import java.time.Instant
+import java.time.LocalDateTime
+import java.time.ZoneOffset
+import com.yourname.smarthealth.model.CountType as CountTypeModel
+import com.yourname.smarthealth.model.DataSource as DataSourceModel
+import com.yourname.smarthealth.model.ExerciseLocation as ExerciseLocationModel
+import com.yourname.smarthealth.model.ExerciseLog as ExerciseLogModel
+import com.yourname.smarthealth.model.ExerciseSession as ExerciseSessionModel
+import com.yourname.smarthealth.model.HealthDataPoint as HealthDataPointModel
 
 class MainActivity() : AppCompatActivity() {
-
-    private lateinit var healthConnectClient: HealthConnectClient
-
-    private lateinit var mStore: HealthDataStore
-    private lateinit var mHelper: HealthDataService
-
-    private val permissions = setOf(
-        HealthPermission.getReadPermission(StepsRecord::class)
-    )
-
-    private val requestPermissions =
-        registerForActivityResult(
-            PermissionController.createRequestPermissionResultContract()
-        ) { granted: Set<String> ->
-            if (granted.containsAll(permissions)) {
-                // ✅ All permissions granted — safe to read data
-                readStepsHistory(this)
-            } else {
-                // ❌ User denied permissionsToast.makeText(this, "Permissions not granted!", Toast.LENGTH_SHORT).show()
-                Toast.makeText(this, "Permissions not granted!", Toast.LENGTH_SHORT).show()
-            }
-        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        healthConnectClient = HealthConnectClient.getOrCreate(this)
-
-        // Launch coroutine to request permissions and read data
-        lifecycleScope.launch {
-            val granted = hasAllPermissions(permissions)
-            if (!granted) {
-                requestPermissions.launch(permissions)
-            } else {
-                //readStepsHistory()
-            }
-        }
         val readStepsButton: Button = findViewById(R.id.readStepsButton)
         readStepsButton.setOnClickListener {
             readStepCount()
@@ -92,70 +69,9 @@ class MainActivity() : AppCompatActivity() {
 
     }
 
-    suspend fun hasAllPermissions(permissions: Set<String>): Boolean {
-        return healthConnectClient.permissionController.getGrantedPermissions()
-            .containsAll(permissions)
-    }
-
-    fun requestPermissionsActivityContract(): ActivityResultContract<Set<String>, Set<String>> {
-        return PermissionController.createRequestPermissionResultContract()
-    }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == PERMISSION_REQUEST_CODE) {
-            // After returning from Health Connect permission screen
-            lifecycleScope.launch {
-                val granted = healthConnectClient.permissionController.getGrantedPermissions()
-                if (granted.containsAll(permissions)) {
-                    readStepsHistory(this@MainActivity)
-                } else {
-                    Log.w(TAG, "Health Connect permissions not granted")
-                }
-            }
-        }
-    }
-
-    private fun readStepsHistory(context: Context) {
-        lifecycleScope.launch {
-            try {
-                checkForPermissions(this@MainActivity)
-                val healthDataStore = HealthDataService.getStore(context)
-                val localTimeFilter =
-                    LocalTimeFilter.of(LocalDateTime.now().minusDays(1), LocalDateTime.now())
-                val readRequest = DataTypes.HEART_RATE.readDataRequestBuilder
-                    .setLocalTimeFilter(localTimeFilter)
-                    .setOrdering(Ordering.DESC)
-                    .build()
-                val heartRateList = healthDataStore.readData(readRequest).dataList
-                Log.d(TAG, "Heart rate list: $heartRateList")
-                var pageToken: String? = null
-                var totalSteps = 0L
-
-                do {
-                    val response = healthConnectClient.readRecords(
-                        ReadRecordsRequest(
-                            recordType = StepsRecord::class,
-                            timeRangeFilter = TimeRangeFilter.after(Instant.EPOCH), // everything since epoch
-                            pageSize = 1000,
-                            pageToken = pageToken
-                        )
-                    )
-
-                    // Filter only Samsung Health
-                    val samsungSteps = response.records
-                        .filter { it.metadata.dataOrigin.packageName == "com.sec.android.app.shealth" }
-
-                    totalSteps += samsungSteps.sumOf { it.count.toLong() }
-
-                    // Get the next page token
-                    pageToken = response.pageToken
-                } while (pageToken != null)
-
-            } catch (e: Exception) {
-                Log.e(TAG, "Error reading steps", e)
-            }
-        }
     }
 
     private fun readStepCount(
@@ -187,9 +103,21 @@ class MainActivity() : AppCompatActivity() {
         }
     }
 
-    fun readExercises(startTime: LocalDateTime = LocalDateTime.now().minusDays(5),
-                      endTime: LocalDateTime = LocalDateTime.now()) {
+    fun readExercises(
+        startTime: LocalDateTime = LocalDateTime.now().minusDays(15),
+        endTime: LocalDateTime = LocalDateTime.now()
+    ) {
         lifecycleScope.launch {
+
+            val strategy: ExclusionStrategy = object : ExclusionStrategy {
+                override fun shouldSkipField(field: FieldAttributes): Boolean {
+                    return field.name == "logByteList"
+                }
+
+                override fun shouldSkipClass(clazz: Class<*>?): Boolean {
+                    return false
+                }
+            }
             try {
                 val healthDataStore = HealthDataService.getStore(applicationContext)
                 val localtimeFilter = LocalTimeFilter.of(startTime, endTime)
@@ -199,6 +127,125 @@ class MainActivity() : AppCompatActivity() {
                     .build()
 
                 val dataList = healthDataStore.readData(readDataRequest).dataList
+                val allFields = DataTypes.EXERCISE.allFields
+
+                val healthDataPoints = dataList.map { dataPoint ->
+                    val sessionList = dataPoint.getValue(allFields[0]) as List<ExerciseSession>
+                    HealthDataPointModel(
+                        clientDataId = dataPoint.clientDataId,
+                        clientVersion = dataPoint.clientVersion,
+                        dataSource = dataPoint.dataSource?.let { dataSource ->
+                            DataSourceModel(
+                                appId = dataSource.appId,
+                                deviceId = dataSource.deviceId
+                            )
+                        },
+                        endTime = dataPoint.endTime,
+                        startTime = dataPoint.startTime,
+                        uid = dataPoint.uid,
+                        updateTime = dataPoint.updateTime,
+                        zoneOffset = dataPoint.zoneOffset,
+                        value = sessionList.map { session ->
+                            ExerciseSessionModel(
+                                altitudeGain = session.altitudeGain,
+                                altitudeLoss = session.altitudeLoss,
+                                calories = session.calories,
+                                comment = session.comment,
+                                count = session.count,
+                                countType = CountTypeModel.valueOf(session.countType.name),
+                                customTitle = session.customTitle,
+                                declineDistance = session.declineDistance,
+                                distance = session.distance,
+                                duration = session.duration,
+                                endTime = session.endTime,
+                                exerciseType = session.exerciseType.name,
+                                inclineDistance = session.inclineDistance,
+                                log = session.log?.map { log ->
+                                    ExerciseLogModel(
+                                        cadence = log.cadence,
+                                        count = log.count,
+                                        heartRate = log.heartRate,
+                                        power = log.power,
+                                        speed = log.speed,
+                                        timestamp = log.timestamp
+                                    )
+                                },
+                                maxAltitude = session.maxAltitude,
+                                maxCadence = session.maxCadence,
+                                maxCalorieBurnRate = session.maxCalorieBurnRate,
+                                maxHeartRate = session.maxHeartRate,
+                                maxPower = session.maxPower,
+                                maxRpm = session.maxRpm,
+                                maxSpeed = session.maxSpeed,
+                                meanCadence = session.meanCadence,
+                                meanCalorieBurnRate = session.meanCalorieBurnRate,
+                                meanHeartRate = session.meanHeartRate,
+                                meanPower = session.meanPower,
+                                meanRpm = session.meanRpm,
+                                meanSpeed = session.meanSpeed,
+                                minAltitude = session.minAltitude,
+                                minHeartRate = session.minHeartRate,
+                                route = session.route?.map { location ->
+                                    ExerciseLocationModel(
+                                        accuracy = location.accuracy,
+                                        altitude = location.altitude,
+                                        latitude = location.latitude,
+                                        longitude = location.longitude,
+                                        timestamp = location.timestamp
+                                    )
+                                },
+                                startTime = session.startTime,
+                                swimmingLog = session.swimmingLog,
+                                vo2Max = session.vo2Max
+                            )
+                        }
+                    )
+                }
+
+                val gson = GsonBuilder()
+                    .setPrettyPrinting()
+                    .registerTypeAdapter(Instant::class.java, InstantAdapter())
+                    .registerTypeAdapter(Duration::class.java, DurationAdapter())
+                    .registerTypeAdapter(ZoneOffset::class.java, ZoneOffsetAdapter())
+                    .create()
+
+                val retrofit = Retrofit.Builder()
+                    .baseUrl("http://192.168.1.131:8080/") // Replace with your actual base URL
+                    .addConverterFactory(GsonConverterFactory.create(gson))
+                    .build()
+
+                val apiService = retrofit.create(ApiService::class.java)
+
+                healthDataPoints.forEach { dataPoint ->
+                    Log.i("MyAppTag", gson.toJson(dataPoint))
+                    val call = apiService.createPost(dataPoint)
+
+                    call.enqueue(object : Callback<HealthDataPointModel> {
+                        override fun onResponse(
+                            call: Call<HealthDataPointModel>,
+                            response: Response<HealthDataPointModel>
+                        ) {
+                            if (response.isSuccessful) {
+                                val data = response.body()
+                                // Handle your HealthDataPoint here
+                            } else {
+                                Log.e("MyAppTag", "Erro")
+                            }
+                        }
+
+                        override fun onFailure(call: Call<HealthDataPointModel>, t: Throwable) {
+                            // Handle failure
+                            Log.e("MyAppTag", "Erro")
+                        }
+                    })
+                }
+
+                val value = (dataList.first() as HealthDataPoint).getValue(allFields.first())
+                val gsonb = GsonBuilder().addSerializationExclusionStrategy(strategy).create()
+                val toJson = gson.toJson((dataList[15] as HealthDataPoint).getValue(allFields[0]))
+                Log.d(TAG, "Exercise: $dataList")
+                val value1 = (dataList.first() as HealthDataPoint).getValue(allFields.first())
+                println(value1)
                 Log.d(TAG, "Exercise: $dataList")
             } catch (exception: Exception) {
                 Log.e(TAG, "Error reading steps", exception)
@@ -215,6 +262,8 @@ class MainActivity() : AppCompatActivity() {
             Permission.of(DataTypes.BLOOD_OXYGEN, AccessType.READ),
             Permission.of(DataTypes.BLOOD_GLUCOSE, AccessType.READ),
             Permission.of(DataTypes.EXERCISE, AccessType.READ),
+            Permission.of(DataTypes.EXERCISE_LOCATION, AccessType.READ),
+            Permission.of(DataTypes.ACTIVITY_SUMMARY, AccessType.READ),
         )
 
         try {

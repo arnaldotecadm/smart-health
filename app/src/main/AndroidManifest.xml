@@ -21,6 +21,7 @@
     <uses-permission android:name="com.samsung.android.providers.context.permission.READ_USE_APP_FEATURE_SURVEY" />
 
     <application
+        android:networkSecurityConfig="@xml/network_security_config"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
