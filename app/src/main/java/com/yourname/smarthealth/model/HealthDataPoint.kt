@@ -12,5 +12,5 @@ data class HealthDataPoint(
     val uid: String,
     val updateTime: Instant?,
     val zoneOffset: ZoneOffset?,
-    val value: List<ExerciseSession>
+    val value: List<RecordSession>
 )

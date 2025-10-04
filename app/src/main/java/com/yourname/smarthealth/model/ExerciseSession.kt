@@ -4,6 +4,9 @@ import java.time.Duration
 import java.time.Instant
 
 data class ExerciseSession(
+    override val startTime: Instant,
+    override val endTime: Instant,
+    override val duration: Duration,
     val altitudeGain: Float?,
     val altitudeLoss: Float?,
     val calories: Float,
@@ -13,8 +16,6 @@ data class ExerciseSession(
     val customTitle: String?,
     val declineDistance: Float?,
     val distance: Float?,
-    val duration: Duration,
-    val endTime: Instant,
     val exerciseType: String,
     val inclineDistance: Float?,
     val log: List<ExerciseLog>?,
@@ -34,7 +35,6 @@ data class ExerciseSession(
     val minAltitude: Float?,
     val minHeartRate: Float?,
     val route: List<ExerciseLocation>?,
-    val startTime: Instant,
     val swimmingLog: Any?,
     val vo2Max: Float? = null
-)
+) : RecordSession

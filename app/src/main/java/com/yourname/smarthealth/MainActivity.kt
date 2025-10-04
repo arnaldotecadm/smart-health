@@ -7,46 +7,41 @@ import android.util.Log
 import android.widget.Button
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
-import com.google.gson.ExclusionStrategy
-import com.google.gson.FieldAttributes
-import com.google.gson.GsonBuilder
 import com.samsung.android.sdk.health.data.HealthDataService
-import com.samsung.android.sdk.health.data.data.AggregateOperation
-import com.samsung.android.sdk.health.data.data.DataPoint
+import com.samsung.android.sdk.health.data.HealthDataStore
 import com.samsung.android.sdk.health.data.data.HealthDataPoint
 import com.samsung.android.sdk.health.data.data.entries.ExerciseSession
+import com.samsung.android.sdk.health.data.data.entries.SleepSession
 import com.samsung.android.sdk.health.data.error.HealthDataException
 import com.samsung.android.sdk.health.data.error.ResolvablePlatformException
 import com.samsung.android.sdk.health.data.permission.AccessType
 import com.samsung.android.sdk.health.data.permission.Permission
-import com.samsung.android.sdk.health.data.request.AggregateRequest
 import com.samsung.android.sdk.health.data.request.DataType
 import com.samsung.android.sdk.health.data.request.DataTypes
 import com.samsung.android.sdk.health.data.request.LocalTimeFilter
 import com.samsung.android.sdk.health.data.request.LocalTimeGroup
 import com.samsung.android.sdk.health.data.request.LocalTimeGroupUnit
 import com.samsung.android.sdk.health.data.request.Ordering
-import com.samsung.android.sdk.health.data.request.ReadDataRequest
-import com.yourname.smarthealth.adapter.DurationAdapter
-import com.yourname.smarthealth.adapter.InstantAdapter
-import com.yourname.smarthealth.adapter.ZoneOffsetAdapter
+import com.yourname.smarthealth.model.RecordSession
 import com.yourname.smarthealth.service.ApiService
+import com.yourname.smarthealth.utils.Utilities.gson
 import kotlinx.coroutines.launch
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
-import java.time.Duration
-import java.time.Instant
 import java.time.LocalDateTime
-import java.time.ZoneOffset
+import java.time.LocalTime
 import com.yourname.smarthealth.model.CountType as CountTypeModel
 import com.yourname.smarthealth.model.DataSource as DataSourceModel
 import com.yourname.smarthealth.model.ExerciseLocation as ExerciseLocationModel
 import com.yourname.smarthealth.model.ExerciseLog as ExerciseLogModel
 import com.yourname.smarthealth.model.ExerciseSession as ExerciseSessionModel
 import com.yourname.smarthealth.model.HealthDataPoint as HealthDataPointModel
+import com.yourname.smarthealth.model.SleepSession as SleepSessionModel
+import com.yourname.smarthealth.model.SleepStage as SleepStageModel
+import com.yourname.smarthealth.model.SleepStageType as SleepStageTypeModel
 
 class MainActivity() : AppCompatActivity() {
 
@@ -108,16 +103,6 @@ class MainActivity() : AppCompatActivity() {
         endTime: LocalDateTime = LocalDateTime.now()
     ) {
         lifecycleScope.launch {
-
-            val strategy: ExclusionStrategy = object : ExclusionStrategy {
-                override fun shouldSkipField(field: FieldAttributes): Boolean {
-                    return field.name == "logByteList"
-                }
-
-                override fun shouldSkipClass(clazz: Class<*>?): Boolean {
-                    return false
-                }
-            }
             try {
                 val healthDataStore = HealthDataService.getStore(applicationContext)
                 val localtimeFilter = LocalTimeFilter.of(startTime, endTime)
@@ -127,97 +112,20 @@ class MainActivity() : AppCompatActivity() {
                     .build()
 
                 val dataList = healthDataStore.readData(readDataRequest).dataList
-                val allFields = DataTypes.EXERCISE.allFields
 
                 val healthDataPoints = dataList.map { dataPoint ->
-                    val sessionList = dataPoint.getValue(allFields[0]) as List<ExerciseSession>
-                    HealthDataPointModel(
-                        clientDataId = dataPoint.clientDataId,
-                        clientVersion = dataPoint.clientVersion,
-                        dataSource = dataPoint.dataSource?.let { dataSource ->
-                            DataSourceModel(
-                                appId = dataSource.appId,
-                                deviceId = dataSource.deviceId
-                            )
-                        },
-                        endTime = dataPoint.endTime,
-                        startTime = dataPoint.startTime,
-                        uid = dataPoint.uid,
-                        updateTime = dataPoint.updateTime,
-                        zoneOffset = dataPoint.zoneOffset,
-                        value = sessionList.map { session ->
-                            ExerciseSessionModel(
-                                altitudeGain = session.altitudeGain,
-                                altitudeLoss = session.altitudeLoss,
-                                calories = session.calories,
-                                comment = session.comment,
-                                count = session.count,
-                                countType = CountTypeModel.valueOf(session.countType.name),
-                                customTitle = session.customTitle,
-                                declineDistance = session.declineDistance,
-                                distance = session.distance,
-                                duration = session.duration,
-                                endTime = session.endTime,
-                                exerciseType = session.exerciseType.name,
-                                inclineDistance = session.inclineDistance,
-                                log = session.log?.map { log ->
-                                    ExerciseLogModel(
-                                        cadence = log.cadence,
-                                        count = log.count,
-                                        heartRate = log.heartRate,
-                                        power = log.power,
-                                        speed = log.speed,
-                                        timestamp = log.timestamp
-                                    )
-                                },
-                                maxAltitude = session.maxAltitude,
-                                maxCadence = session.maxCadence,
-                                maxCalorieBurnRate = session.maxCalorieBurnRate,
-                                maxHeartRate = session.maxHeartRate,
-                                maxPower = session.maxPower,
-                                maxRpm = session.maxRpm,
-                                maxSpeed = session.maxSpeed,
-                                meanCadence = session.meanCadence,
-                                meanCalorieBurnRate = session.meanCalorieBurnRate,
-                                meanHeartRate = session.meanHeartRate,
-                                meanPower = session.meanPower,
-                                meanRpm = session.meanRpm,
-                                meanSpeed = session.meanSpeed,
-                                minAltitude = session.minAltitude,
-                                minHeartRate = session.minHeartRate,
-                                route = session.route?.map { location ->
-                                    ExerciseLocationModel(
-                                        accuracy = location.accuracy,
-                                        altitude = location.altitude,
-                                        latitude = location.latitude,
-                                        longitude = location.longitude,
-                                        timestamp = location.timestamp
-                                    )
-                                },
-                                startTime = session.startTime,
-                                swimmingLog = session.swimmingLog,
-                                vo2Max = session.vo2Max
-                            )
-                        }
-                    )
+                    dataPointToModel(dataPoint = dataPoint, dataType = DataTypes.EXERCISE)
                 }
 
-                val gson = GsonBuilder()
-                    .setPrettyPrinting()
-                    .registerTypeAdapter(Instant::class.java, InstantAdapter())
-                    .registerTypeAdapter(Duration::class.java, DurationAdapter())
-                    .registerTypeAdapter(ZoneOffset::class.java, ZoneOffsetAdapter())
-                    .create()
-
                 val retrofit = Retrofit.Builder()
-                    .baseUrl("http://192.168.1.131:8080/") // Replace with your actual base URL
+                    .baseUrl("http://192.168.1.131:8080/")
                     .addConverterFactory(GsonConverterFactory.create(gson))
                     .build()
 
                 val apiService = retrofit.create(ApiService::class.java)
 
                 healthDataPoints.forEach { dataPoint ->
-                    Log.i("MyAppTag", gson.toJson(dataPoint))
+                    Log.i(TAG, gson.toJson(dataPoint))
                     val call = apiService.createPost(dataPoint)
 
                     call.enqueue(object : Callback<HealthDataPointModel> {
@@ -229,27 +137,131 @@ class MainActivity() : AppCompatActivity() {
                                 val data = response.body()
                                 // Handle your HealthDataPoint here
                             } else {
-                                Log.e("MyAppTag", "Erro")
+                                Log.e(TAG, "Erro")
                             }
                         }
 
                         override fun onFailure(call: Call<HealthDataPointModel>, t: Throwable) {
                             // Handle failure
-                            Log.e("MyAppTag", "Erro")
+                            Log.e(TAG, "Erro")
                         }
                     })
                 }
-
-                val value = (dataList.first() as HealthDataPoint).getValue(allFields.first())
-                val gsonb = GsonBuilder().addSerializationExclusionStrategy(strategy).create()
-                val toJson = gson.toJson((dataList[15] as HealthDataPoint).getValue(allFields[0]))
-                Log.d(TAG, "Exercise: $dataList")
-                val value1 = (dataList.first() as HealthDataPoint).getValue(allFields.first())
-                println(value1)
                 Log.d(TAG, "Exercise: $dataList")
             } catch (exception: Exception) {
                 Log.e(TAG, "Error reading steps", exception)
             }
+        }
+    }
+
+    fun dataPointToModel(dataPoint: HealthDataPoint, dataType: DataType) : HealthDataPointModel{
+        val data = when (dataType) {
+            is DataType.ExerciseType -> {
+                val sessionList =
+                    dataPoint.getValue(DataType.ExerciseType.SESSIONS) as List<ExerciseSession>
+                sessionList.toExerciseSessionModel()
+            }
+
+            is DataType.SleepType -> {
+                val sessionList =
+                    dataPoint.getValue(DataType.SleepType.SESSIONS) as List<SleepSession>
+                sessionList.toSleepSessionModel()
+            }
+
+            else -> {
+                throw RuntimeException("")
+            }
+        }
+        DataType.ExerciseType.SESSIONS.javaClass
+        return HealthDataPointModel(
+            clientDataId = dataPoint.clientDataId,
+            clientVersion = dataPoint.clientVersion,
+            dataSource = dataPoint.dataSource?.let { dataSource ->
+                DataSourceModel(
+                    appId = dataSource.appId,
+                    deviceId = dataSource.deviceId
+                )
+            },
+            endTime = dataPoint.endTime,
+            startTime = dataPoint.startTime,
+            uid = dataPoint.uid,
+            updateTime = dataPoint.updateTime,
+            zoneOffset = dataPoint.zoneOffset,
+            value = data
+        )
+    }
+
+    fun List<SleepSession>.toSleepSessionModel(): List<RecordSession> {
+        return this.map { session ->
+            SleepSessionModel(
+                startTime = session.startTime,
+                endTime = session.endTime,
+                duration = session.duration,
+                stages = session.stages?.map { stage ->
+                    SleepStageModel(
+                        startTime = stage.startTime,
+                        endTime = stage.endTime,
+                        stage = SleepStageTypeModel.valueOf(stage.stage.name)
+                    )
+                }
+            )
+        }
+    }
+
+    fun List<ExerciseSession>.toExerciseSessionModel(): List<RecordSession> {
+        return this.map { session ->
+            ExerciseSessionModel(
+                altitudeGain = session.altitudeGain,
+                altitudeLoss = session.altitudeLoss,
+                calories = session.calories,
+                comment = session.comment,
+                count = session.count,
+                countType = CountTypeModel.valueOf(session.countType.name),
+                customTitle = session.customTitle,
+                declineDistance = session.declineDistance,
+                distance = session.distance,
+                duration = session.duration,
+                endTime = session.endTime,
+                exerciseType = session.exerciseType.name,
+                inclineDistance = session.inclineDistance,
+                log = session.log?.map { log ->
+                    ExerciseLogModel(
+                        cadence = log.cadence,
+                        count = log.count,
+                        heartRate = log.heartRate,
+                        power = log.power,
+                        speed = log.speed,
+                        timestamp = log.timestamp
+                    )
+                },
+                maxAltitude = session.maxAltitude,
+                maxCadence = session.maxCadence,
+                maxCalorieBurnRate = session.maxCalorieBurnRate,
+                maxHeartRate = session.maxHeartRate,
+                maxPower = session.maxPower,
+                maxRpm = session.maxRpm,
+                maxSpeed = session.maxSpeed,
+                meanCadence = session.meanCadence,
+                meanCalorieBurnRate = session.meanCalorieBurnRate,
+                meanHeartRate = session.meanHeartRate,
+                meanPower = session.meanPower,
+                meanRpm = session.meanRpm,
+                meanSpeed = session.meanSpeed,
+                minAltitude = session.minAltitude,
+                minHeartRate = session.minHeartRate,
+                route = session.route?.map { location ->
+                    ExerciseLocationModel(
+                        accuracy = location.accuracy,
+                        altitude = location.altitude,
+                        latitude = location.latitude,
+                        longitude = location.longitude,
+                        timestamp = location.timestamp
+                    )
+                },
+                startTime = session.startTime,
+                swimmingLog = session.swimmingLog,
+                vo2Max = session.vo2Max
+            )
         }
     }
 
@@ -283,6 +295,25 @@ class MainActivity() : AppCompatActivity() {
             // handle other types of HealthDataException
             error.printStackTrace()
         }
+    }
+
+    suspend fun getTotalStepsPerDay(healthDataStore: HealthDataStore) {
+        val todayDateTime = LocalDateTime.now().with(LocalTime.MIDNIGHT)
+        val todayLocalTimeFilter = LocalTimeFilter.of(todayDateTime, todayDateTime.plusDays(1))
+        val hourlyTimeGroup = LocalTimeGroup.of(LocalTimeGroupUnit.HOURLY, 1)
+        val stepsAggregateRequest = DataType.StepsType.TOTAL.requestBuilder
+            .setLocalTimeFilterWithGroup(todayLocalTimeFilter, hourlyTimeGroup)
+            .setOrdering(Ordering.ASC)
+            .build()
+        val hourlyStepsResponse = healthDataStore.aggregateData(stepsAggregateRequest)
+        val dataListSteps = hourlyStepsResponse.dataList
+        val sumOf = dataListSteps.sumOf { it.value!! }
+        Log.i(TAG, sumOf.toString())
+        dataListSteps.forEach { stepData ->
+            val hourlySteps: Long = stepData.value!!
+            Log.i(TAG, hourlySteps.toString())
+        }
+
     }
 
     companion object {
