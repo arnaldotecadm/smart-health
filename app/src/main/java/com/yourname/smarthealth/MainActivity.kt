@@ -58,6 +58,11 @@ class MainActivity() : AppCompatActivity() {
         readExerciseButton.setOnClickListener {
             readExercises()
         }
+
+        val readSleepButton: Button = findViewById(R.id.readSleepButton)
+        readSleepButton.setOnClickListener {
+            readSleep()
+        }
         lifecycleScope.launch {
             checkForPermissions(this@MainActivity)
         }
@@ -124,29 +129,10 @@ class MainActivity() : AppCompatActivity() {
 
                 val apiService = retrofit.create(ApiService::class.java)
 
-                healthDataPoints.forEach { dataPoint ->
-                    Log.i(TAG, gson.toJson(dataPoint))
-                    val call = apiService.createPost(dataPoint)
-
-                    call.enqueue(object : Callback<HealthDataPointModel> {
-                        override fun onResponse(
-                            call: Call<HealthDataPointModel>,
-                            response: Response<HealthDataPointModel>
-                        ) {
-                            if (response.isSuccessful) {
-                                val data = response.body()
-                                // Handle your HealthDataPoint here
-                            } else {
-                                Log.e(TAG, "Erro")
-                            }
-                        }
-
-                        override fun onFailure(call: Call<HealthDataPointModel>, t: Throwable) {
-                            // Handle failure
-                            Log.e(TAG, "Erro")
-                        }
-                    })
-                }
+                sendToAPI(
+                    operationToBeExecuted = apiService::postExercise,
+                    healthDataPoints = healthDataPoints
+                )
                 Log.d(TAG, "Exercise: $dataList")
             } catch (exception: Exception) {
                 Log.e(TAG, "Error reading steps", exception)
@@ -154,7 +140,103 @@ class MainActivity() : AppCompatActivity() {
         }
     }
 
-    fun dataPointToModel(dataPoint: HealthDataPoint, dataType: DataType) : HealthDataPointModel{
+    fun readSleep(
+        startTime: LocalDateTime = LocalDateTime.now().minusDays(15),
+        endTime: LocalDateTime = LocalDateTime.now()
+    ) {
+        lifecycleScope.launch {
+            try {
+                val healthDataStore = HealthDataService.getStore(applicationContext)
+                val localtimeFilter = LocalTimeFilter.of(startTime, endTime)
+                val readDataRequest = DataTypes.SLEEP.readDataRequestBuilder
+                    .setLocalTimeFilter(localtimeFilter)
+                    .setOrdering(Ordering.DESC)
+                    .build()
+
+                readSleepScore()
+                val dataList = healthDataStore.readData(readDataRequest).dataList
+
+                val healthDataPoints = dataList.map { dataPoint ->
+                    dataPointToModel(dataPoint = dataPoint, dataType = DataTypes.SLEEP)
+                }
+
+                val retrofit = Retrofit.Builder()
+                    .baseUrl("http://192.168.1.131:8080/")
+                    .addConverterFactory(GsonConverterFactory.create(gson))
+                    .build()
+
+                val apiService = retrofit.create(ApiService::class.java)
+
+                sendToAPI(
+                    operationToBeExecuted = apiService::postSleep,
+                    healthDataPoints = healthDataPoints
+                )
+                Log.d(TAG, "Exercise: $dataList")
+            } catch (exception: Exception) {
+                Log.e(TAG, "Error reading steps", exception)
+            }
+        }
+    }
+
+    fun readSleepScore(
+        startTime: LocalDateTime = LocalDateTime.now().minusDays(15),
+        endTime: LocalDateTime = LocalDateTime.now()
+    ){
+        lifecycleScope.launch {
+            try {
+                val healthDataStore = HealthDataService.getStore(applicationContext)
+                val localtimeFilter = LocalTimeFilter.of(startTime, endTime)
+
+                val readRequest = DataType.ExerciseType.TOTAL_CALORIES.requestBuilder
+                    .setLocalTimeFilterWithGroup(
+                        localtimeFilter,
+                        LocalTimeGroup.of(LocalTimeGroupUnit.DAILY, 1)
+                    )
+                    .setOrdering(Ordering.ASC)
+                    .build()
+
+                val dataList = healthDataStore.aggregateData(readRequest).dataList
+                dataList.forEach {
+                    val hourlyStepCount = it.value
+                }
+                val dailyStepCount = dataList.sumOf { it.value as Long }
+                Log.d(TAG, "Daily step count: $dailyStepCount")
+            } catch (exception: Exception) {
+                Log.e(TAG, "Error reading steps", exception)
+            }
+        }
+    }
+    private fun sendToAPI(
+        operationToBeExecuted: (HealthDataPointModel) -> Call<HealthDataPointModel>,
+        healthDataPoints: List<HealthDataPointModel>
+    ) {
+        healthDataPoints.forEach { dataPoint ->
+            Log.i(TAG, gson.toJson(dataPoint))
+            operationToBeExecuted.invoke(dataPoint)
+            val call = operationToBeExecuted.invoke(dataPoint)
+
+            call.enqueue(object : Callback<HealthDataPointModel> {
+                override fun onResponse(
+                    call: Call<HealthDataPointModel>,
+                    response: Response<HealthDataPointModel>
+                ) {
+                    if (response.isSuccessful) {
+                        val data = response.body()
+                        // Handle your HealthDataPoint here
+                    } else {
+                        Log.e(TAG, "Erro")
+                    }
+                }
+
+                override fun onFailure(call: Call<HealthDataPointModel>, t: Throwable) {
+                    // Handle failure
+                    Log.e(TAG, "Erro")
+                }
+            })
+        }
+    }
+
+    fun dataPointToModel(dataPoint: HealthDataPoint, dataType: DataType): HealthDataPointModel {
         val data = when (dataType) {
             is DataType.ExerciseType -> {
                 val sessionList =
@@ -172,7 +254,6 @@ class MainActivity() : AppCompatActivity() {
                 throw RuntimeException("")
             }
         }
-        DataType.ExerciseType.SESSIONS.javaClass
         return HealthDataPointModel(
             clientDataId = dataPoint.clientDataId,
             clientVersion = dataPoint.clientVersion,
@@ -187,7 +268,7 @@ class MainActivity() : AppCompatActivity() {
             uid = dataPoint.uid,
             updateTime = dataPoint.updateTime,
             zoneOffset = dataPoint.zoneOffset,
-            value = data
+            sessions = data
         )
     }
 

@@ -8,5 +8,8 @@ import retrofit2.http.POST
 
 interface ApiService {
     @POST("exercises")
-    fun createPost(@Body postData: HealthDataPointModel): Call<HealthDataPointModel>
+    fun postExercise(@Body postData: HealthDataPointModel): Call<HealthDataPointModel>
+
+    @POST("sleeps")
+    fun postSleep(@Body postData: HealthDataPointModel): Call<HealthDataPointModel>
 }
