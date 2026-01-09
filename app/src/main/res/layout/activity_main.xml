@@ -1,39 +1,38 @@
-<LinearLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    android:orientation="vertical"
-    android:padding="24dp"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="24dp">
 
     <Button
         android:id="@+id/permissionButton"
-        android:text="Request Permission Fetch Steps"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"/>
+        android:layout_height="wrap_content"
+        android:text="Request Permission Fetch Steps" />
 
     <Button
         android:id="@+id/readStepsButton"
-        android:text="Read the steps"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"/>
+        android:layout_height="wrap_content"
+        android:text="Read the steps" />
 
     <Button
         android:id="@+id/readExerciseButton"
-        android:text="Read the exercises"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"/>
+        android:layout_height="wrap_content"
+        android:text="Read the exercises" />
 
     <Button
         android:id="@+id/readSleepButton"
-        android:text="Read the sleeps"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"/>
+        android:layout_height="wrap_content"
+        android:text="Read the sleeps" />
 
     <TextView
         android:id="@+id/resultText"
-        android:text="Press button to get steps"
-        android:layout_marginTop="16dp"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="Press button to get steps" />
 
 </LinearLayout>

@@ -2,6 +2,7 @@ package com.yourname.smarthealth
 
 import android.app.Activity
 import android.content.Intent
+import android.health.connect.datatypes.TotalCaloriesBurnedRecord
 import android.os.Bundle
 import android.util.Log
 import android.widget.Button
@@ -31,6 +32,7 @@ import retrofit2.Callback
 import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 import com.yourname.smarthealth.model.CountType as CountTypeModel
@@ -42,6 +44,8 @@ import com.yourname.smarthealth.model.HealthDataPoint as HealthDataPointModel
 import com.yourname.smarthealth.model.SleepSession as SleepSessionModel
 import com.yourname.smarthealth.model.SleepStage as SleepStageModel
 import com.yourname.smarthealth.model.SleepStageType as SleepStageTypeModel
+
+private const val BASE_URL = "http://192.168.1.151:8080/"
 
 class MainActivity() : AppCompatActivity() {
 
@@ -123,7 +127,7 @@ class MainActivity() : AppCompatActivity() {
                 }
 
                 val retrofit = Retrofit.Builder()
-                    .baseUrl("http://192.168.1.131:8080/")
+                    .baseUrl(BASE_URL)
                     .addConverterFactory(GsonConverterFactory.create(gson))
                     .build()
 
@@ -161,7 +165,7 @@ class MainActivity() : AppCompatActivity() {
                 }
 
                 val retrofit = Retrofit.Builder()
-                    .baseUrl("http://192.168.1.131:8080/")
+                    .baseUrl(BASE_URL)
                     .addConverterFactory(GsonConverterFactory.create(gson))
                     .build()
 
@@ -179,27 +183,21 @@ class MainActivity() : AppCompatActivity() {
     }
 
     fun readSleepScore(
-        startTime: LocalDateTime = LocalDateTime.now().minusDays(15),
+        startTime: LocalDateTime = LocalDate.now().atStartOfDay(),
         endTime: LocalDateTime = LocalDateTime.now()
     ){
         lifecycleScope.launch {
             try {
                 val healthDataStore = HealthDataService.getStore(applicationContext)
                 val localtimeFilter = LocalTimeFilter.of(startTime, endTime)
-
-                val readRequest = DataType.ExerciseType.TOTAL_CALORIES.requestBuilder
-                    .setLocalTimeFilterWithGroup(
-                        localtimeFilter,
-                        LocalTimeGroup.of(LocalTimeGroupUnit.DAILY, 1)
+                val readRequest = DataType.ActivitySummaryType..requestBuilder
+                    .setLocalTimeFilter(
+                        localtimeFilter
                     )
-                    .setOrdering(Ordering.ASC)
                     .build()
 
                 val dataList = healthDataStore.aggregateData(readRequest).dataList
-                dataList.forEach {
-                    val hourlyStepCount = it.value
-                }
-                val dailyStepCount = dataList.sumOf { it.value as Long }
+                val dailyStepCount = dataList.sumOf { it.value?.toLong() ?: 0L }
                 Log.d(TAG, "Daily step count: $dailyStepCount")
             } catch (exception: Exception) {
                 Log.e(TAG, "Error reading steps", exception)
@@ -207,18 +205,22 @@ class MainActivity() : AppCompatActivity() {
         }
     }
     private fun sendToAPI(
-        operationToBeExecuted: (HealthDataPointModel) -> Call<HealthDataPointModel>,
+        operationToBeExecuted: (HealthDataPointModel) -> Call<Unit>,
         healthDataPoints: List<HealthDataPointModel>
     ) {
         healthDataPoints.forEach { dataPoint ->
             Log.i(TAG, gson.toJson(dataPoint))
+            Log.i(TAG, "UID => ${dataPoint.uid}")
+            if(dataPoint.uid == "4ccc1a82-9e08-4f99-8998-0b0d48877c8b") {
+                Log.i(TAG, "UID => ${dataPoint.uid}")
+            }
             operationToBeExecuted.invoke(dataPoint)
             val call = operationToBeExecuted.invoke(dataPoint)
 
-            call.enqueue(object : Callback<HealthDataPointModel> {
+            call.enqueue(object : Callback<Unit> {
                 override fun onResponse(
-                    call: Call<HealthDataPointModel>,
-                    response: Response<HealthDataPointModel>
+                    call: Call<Unit>,
+                    response: Response<Unit>
                 ) {
                     if (response.isSuccessful) {
                         val data = response.body()
@@ -228,9 +230,9 @@ class MainActivity() : AppCompatActivity() {
                     }
                 }
 
-                override fun onFailure(call: Call<HealthDataPointModel>, t: Throwable) {
+                override fun onFailure(call: Call<Unit>, t: Throwable) {
                     // Handle failure
-                    Log.e(TAG, "Erro")
+                    Log.e(TAG, "Erro => ${t.message}")
                 }
             })
         }
@@ -357,6 +359,8 @@ class MainActivity() : AppCompatActivity() {
             Permission.of(DataTypes.EXERCISE, AccessType.READ),
             Permission.of(DataTypes.EXERCISE_LOCATION, AccessType.READ),
             Permission.of(DataTypes.ACTIVITY_SUMMARY, AccessType.READ),
+            Permission.of(DataTypes.NUTRITION, AccessType.READ),
+            Permission.of(DataTypes.NUTRITION_GOAL, AccessType.READ),
         )
 
         try {
@@ -398,7 +402,7 @@ class MainActivity() : AppCompatActivity() {
     }
 
     companion object {
-        private const val TAG = "SmartHealth"
+        private const val TAG = "SmartHealth_TAG"
         private const val PERMISSION_REQUEST_CODE = 1001
     }
 }
