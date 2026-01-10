@@ -11,7 +11,7 @@ import java.time.Instant
 
 class InstantAdapter : JsonSerializer<Instant>, JsonDeserializer<Instant> {
     override fun serialize(src: Instant, typeOfSrc: Type, context: JsonSerializationContext): JsonElement {
-        return JsonPrimitive(src.toString()) // ISO-8601 format
+        return JsonPrimitive(src.toString())
     }
 
     override fun deserialize(json: JsonElement, typeOfT: Type, context: JsonDeserializationContext): Instant {

@@ -15,7 +15,7 @@ class ZoneOffsetAdapter : JsonSerializer<ZoneOffset>, JsonDeserializer<ZoneOffse
         typeOfSrc: Type,
         context: JsonSerializationContext
     ): JsonElement {
-        return JsonPrimitive(src.toString()) // e.g. "+01:00"
+        return JsonPrimitive(src.toString())
     }
 
     override fun deserialize(

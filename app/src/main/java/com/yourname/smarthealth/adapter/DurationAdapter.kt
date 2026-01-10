@@ -15,7 +15,7 @@ class DurationAdapter : JsonSerializer<Duration>, JsonDeserializer<Duration> {
         typeOfSrc: Type,
         context: JsonSerializationContext
     ): JsonElement {
-        return JsonPrimitive(src.toString()) // e.g. "PT18M46.874S"
+        return JsonPrimitive(src.toString())
     }
 
     override fun deserialize(
