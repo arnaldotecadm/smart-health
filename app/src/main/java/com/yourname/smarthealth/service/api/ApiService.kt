@@ -15,4 +15,7 @@ interface ApiService {
 
     @POST("daily-summary")
     suspend fun postDailySummary(@Body data: DailySummary): Response<Unit>
+
+    @POST("heart-rate")
+    suspend fun postHeartRateSeries(@Body data: List<HealthDataPoint>): Response<Unit>
 }

@@ -6,6 +6,10 @@ import com.yourname.smarthealth.model.HealthDataPoint as HealthDataPointModel
 
 class SleepApiService : ApiBackend() {
 
+    override suspend fun sendListToApi(healthDataPoints: List<HealthDataPointModel>) {
+        healthDataPoints.forEach { sendToApi(it) }
+    }
+
     override suspend fun sendToApi(
         healthDataPoint: HealthDataPointModel
     ) {

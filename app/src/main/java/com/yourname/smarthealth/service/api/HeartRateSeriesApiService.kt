@@ -4,17 +4,11 @@ import android.util.Log
 import com.yourname.smarthealth.utils.Constants.TAG
 import com.yourname.smarthealth.model.HealthDataPoint as HealthDataPointModel
 
-class ExerciseApiService : ApiBackend() {
+class HeartRateSeriesApiService : ApiBackend() {
 
     override suspend fun sendListToApi(healthDataPoints: List<HealthDataPointModel>) {
-        healthDataPoints.forEach { sendToApi(it) }
-    }
-
-    override suspend fun sendToApi(
-        healthDataPoint: HealthDataPointModel
-    ) {
         try {
-            val response = apiService.postExercise(healthDataPoint)
+            val response = apiService.postHeartRateSeries(healthDataPoints)
             if (response.isSuccessful) {
                 return response.body()!!
             } else {

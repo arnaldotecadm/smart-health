@@ -22,10 +22,12 @@ import com.samsung.android.sdk.health.data.request.LocalTimeGroupUnit
 import com.samsung.android.sdk.health.data.request.Ordering
 import com.yourname.smarthealth.service.DailySummaryService
 import com.yourname.smarthealth.service.ExerciseService
+import com.yourname.smarthealth.service.HeartRateService
 import com.yourname.smarthealth.service.SleepService
 import com.yourname.smarthealth.service.api.ApiBackend
 import com.yourname.smarthealth.service.api.DailySummaryApiService
 import com.yourname.smarthealth.service.api.ExerciseApiService
+import com.yourname.smarthealth.service.api.HeartRateSeriesApiService
 import com.yourname.smarthealth.service.api.SleepApiService
 import com.yourname.smarthealth.utils.Constants.TAG
 import kotlinx.coroutines.launch
@@ -37,6 +39,8 @@ class MainActivity() : AppCompatActivity() {
     private lateinit var exerciseService: ExerciseService
     private lateinit var sleepService: SleepService
     private lateinit var dailySummaryService: DailySummaryService
+    private lateinit var heartRateService: HeartRateService
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -56,6 +60,10 @@ class MainActivity() : AppCompatActivity() {
             healthDataStore = HealthDataService.getStore(applicationContext),
             exerciserService = exerciseService,
             dailySummaryApiService = DailySummaryApiService(ApiBackend())
+        )
+        heartRateService = HeartRateService(
+            healthDataStore = HealthDataService.getStore(applicationContext),
+            heartRateSeriesApiService = HeartRateSeriesApiService()
         )
 
         val readStepsButton: Button = findViewById(R.id.readStepsButton)
@@ -92,6 +100,19 @@ class MainActivity() : AppCompatActivity() {
                 }
             }
         }
+
+        val readHeartRateButton: Button = findViewById(R.id.readHeartRate)
+        readHeartRateButton.setOnClickListener {
+            lifecycleScope.launch {
+                heartRateService.processExercises(dateTimeToRetrieve)
+                Toast.makeText(
+                    this@MainActivity,
+                    "Heart Rate Series sent to API",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+
         lifecycleScope.launch {
             checkForPermissions(this@MainActivity)
         }

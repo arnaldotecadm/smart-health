@@ -34,6 +34,12 @@
         android:layout_height="wrap_content"
         android:text="Read Daily Summary" />
 
+    <Button
+        android:id="@+id/readHeartRate"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Read Heart Rate" />
+
     <TextView
         android:id="@+id/resultText"
         android:layout_width="match_parent"

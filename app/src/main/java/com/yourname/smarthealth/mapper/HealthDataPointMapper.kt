@@ -2,9 +2,11 @@ package com.yourname.smarthealth.mapper
 
 import com.samsung.android.sdk.health.data.data.HealthDataPoint
 import com.samsung.android.sdk.health.data.data.entries.ExerciseSession
+import com.samsung.android.sdk.health.data.data.entries.HeartRate
 import com.samsung.android.sdk.health.data.data.entries.SleepSession
 import com.samsung.android.sdk.health.data.request.DataType
 import com.yourname.smarthealth.mapper.ExerciseSessionMapper.toExerciseSessionModel
+import com.yourname.smarthealth.mapper.HeartRateSeriesMapper.toHeartRateSeriesModel
 import com.yourname.smarthealth.mapper.SleepSessionMapper.toSleepSessionModel
 import com.yourname.smarthealth.model.DataSource as DataSourceModel
 import com.yourname.smarthealth.model.HealthDataPoint as HealthDataPointModel
@@ -28,6 +30,12 @@ object HealthDataPointMapper {
                     this.getValue(DataType.SleepType.SESSIONS) as List<SleepSession>
                 sleepScore = this.getValue(DataType.SleepType.SLEEP_SCORE) as Int
                 sessionList.toSleepSessionModel()
+            }
+
+            is DataType.HeartRateType -> {
+                val seriesData =
+                    this.getValue(DataType.HeartRateType.SERIES_DATA) as List<HeartRate>
+                seriesData.toHeartRateSeriesModel()
             }
 
             else -> {
