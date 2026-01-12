@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.widget.Button
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.samsung.android.sdk.health.data.HealthDataService
@@ -19,8 +20,11 @@ import com.samsung.android.sdk.health.data.request.LocalTimeFilter
 import com.samsung.android.sdk.health.data.request.LocalTimeGroup
 import com.samsung.android.sdk.health.data.request.LocalTimeGroupUnit
 import com.samsung.android.sdk.health.data.request.Ordering
+import com.yourname.smarthealth.service.DailySummaryService
 import com.yourname.smarthealth.service.ExerciseService
 import com.yourname.smarthealth.service.SleepService
+import com.yourname.smarthealth.service.api.ApiBackend
+import com.yourname.smarthealth.service.api.DailySummaryApiService
 import com.yourname.smarthealth.service.api.ExerciseApiService
 import com.yourname.smarthealth.service.api.SleepApiService
 import com.yourname.smarthealth.utils.Constants.TAG
@@ -32,10 +36,13 @@ class MainActivity() : AppCompatActivity() {
 
     private lateinit var exerciseService: ExerciseService
     private lateinit var sleepService: SleepService
+    private lateinit var dailySummaryService: DailySummaryService
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        val dateTimeToRetrieve = LocalDateTime.now().minusDays(1)
 
         exerciseService = ExerciseService(
             healthDataStore = HealthDataService.getStore(applicationContext),
@@ -44,6 +51,11 @@ class MainActivity() : AppCompatActivity() {
         sleepService = SleepService(
             healthDataStore = HealthDataService.getStore(applicationContext),
             sleepApiService = SleepApiService()
+        )
+        dailySummaryService = DailySummaryService(
+            healthDataStore = HealthDataService.getStore(applicationContext),
+            exerciserService = exerciseService,
+            dailySummaryApiService = DailySummaryApiService(ApiBackend())
         )
 
         val readStepsButton: Button = findViewById(R.id.readStepsButton)
@@ -54,14 +66,30 @@ class MainActivity() : AppCompatActivity() {
         val readExerciseButton: Button = findViewById(R.id.readExerciseButton)
         readExerciseButton.setOnClickListener {
             lifecycleScope.launch {
-                exerciseService.readExercises(LocalDateTime.now())
+                exerciseService.processExercises(dateTimeToRetrieve)
             }
         }
 
         val readSleepButton: Button = findViewById(R.id.readSleepButton)
         readSleepButton.setOnClickListener {
             lifecycleScope.launch {
-                sleepService.readSleep(LocalDateTime.now())
+                sleepService.readSleep(dateTimeToRetrieve)
+            }
+        }
+
+        val readDailySummary: Button = findViewById(R.id.readDailySummary)
+        readDailySummary.setOnClickListener {
+            lifecycleScope.launch {
+                for (i in 1..5) {
+                    val date = LocalDateTime.now().minusDays(i.toLong())
+                    dailySummaryService.dailySummary(date)
+
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Daily Summary sent to API (${date})",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
             }
         }
         lifecycleScope.launch {

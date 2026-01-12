@@ -28,6 +28,12 @@
         android:layout_height="wrap_content"
         android:text="Read the sleeps" />
 
+    <Button
+        android:id="@+id/readDailySummary"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Read Daily Summary" />
+
     <TextView
         android:id="@+id/resultText"
         android:layout_width="match_parent"

@@ -6,6 +6,7 @@ import com.samsung.android.sdk.health.data.request.DataTypes
 import com.samsung.android.sdk.health.data.request.LocalTimeFilter
 import com.samsung.android.sdk.health.data.request.Ordering
 import com.yourname.smarthealth.mapper.HealthDataPointMapper.toModel
+import com.yourname.smarthealth.model.HealthDataPoint
 import com.yourname.smarthealth.service.api.ExerciseApiService
 import com.yourname.smarthealth.utils.Constants.TAG
 import java.time.LocalDateTime
@@ -16,7 +17,11 @@ class ExerciseService(
     val exerciseApiService: ExerciseApiService
 ) {
 
-    suspend fun readExercises(dateTime: LocalDateTime) {
+    suspend fun processExercises(dateTime: LocalDateTime){
+        val exercises = readExercises(dateTime)
+        sendToApi(exercises)
+    }
+    suspend fun readExercises(dateTime: LocalDateTime): List<HealthDataPoint> {
         try {
             val startTime = dateTime.toLocalDate().atTime(LocalTime.MIN)
             val endTime = dateTime.toLocalDate().atTime(LocalTime.MAX)
@@ -29,9 +34,17 @@ class ExerciseService(
 
             val dataList = healthDataStore.readData(readDataRequest).dataList
 
-            val healthDataPoints = dataList.toModel(dataType = DataTypes.EXERCISE)
+            return dataList.toModel(dataType = DataTypes.EXERCISE)
 
-            exerciseApiService.sendListToApi(healthDataPoints)
+        } catch (exception: Exception) {
+            Log.e(TAG, "Error reading steps", exception)
+        }
+        return emptyList()
+    }
+
+    suspend fun sendToApi(data: List<HealthDataPoint>) {
+        try {
+            exerciseApiService.sendListToApi(data)
         } catch (exception: Exception) {
             Log.e(TAG, "Error reading steps", exception)
         }
