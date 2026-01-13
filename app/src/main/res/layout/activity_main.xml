@@ -8,31 +8,31 @@
         android:id="@+id/readExerciseButton"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Read the exercises" />
+        android:text="@string/read_the_exercises" />
 
     <Button
         android:id="@+id/readSleepButton"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Read the sleeps" />
+        android:text="@string/read_the_sleeps" />
 
     <Button
         android:id="@+id/readDailySummary"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Read Daily Summary" />
+        android:text="@string/read_daily_summary" />
 
     <Button
         android:id="@+id/readHeartRate"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Read Heart Rate" />
+        android:text="@string/read_heart_rate" />
 
     <TextView
         android:id="@+id/resultText"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
-        android:text="Press button to get steps" />
+        android:text="@string/press_button_to_get_steps" />
 
 </LinearLayout>

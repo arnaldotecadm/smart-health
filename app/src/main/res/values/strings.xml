@@ -1,3 +1,8 @@
 <resources>
     <string name="app_name">SmartHealth</string>
+    <string name="read_the_exercises">Read the exercises</string>
+    <string name="read_the_sleeps">Read the sleeps</string>
+    <string name="read_daily_summary">Read Daily Summary</string>
+    <string name="read_heart_rate">Read Heart Rate</string>
+    <string name="press_button_to_get_steps">Press button to get steps</string>
 </resources>
