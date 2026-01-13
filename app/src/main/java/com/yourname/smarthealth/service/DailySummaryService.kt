@@ -2,17 +2,12 @@ package com.yourname.smarthealth.service
 
 import android.util.Log
 import com.samsung.android.sdk.health.data.HealthDataStore
-import com.samsung.android.sdk.health.data.data.AggregateOperation
-import com.samsung.android.sdk.health.data.request.AggregateRequest
 import com.samsung.android.sdk.health.data.request.DataType
-import com.samsung.android.sdk.health.data.request.LocalDateFilter
 import com.samsung.android.sdk.health.data.request.LocalTimeFilter
 import com.yourname.smarthealth.mapper.RecordSessionMapper.toDailySummaryActivityModel
 import com.yourname.smarthealth.model.DailySummary
 import com.yourname.smarthealth.service.api.DailySummaryApiService
 import com.yourname.smarthealth.utils.Constants.TAG
-import java.time.Duration
-import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 
@@ -22,15 +17,20 @@ class DailySummaryService(
     val dailySummaryApiService: DailySummaryApiService
 ) {
 
-    suspend fun dailySummary(dateTime: LocalDateTime) {
+    suspend fun processDailySummary(dateTime: LocalDateTime) {
+        val data = readData(dateTime)
+        sendDataToAPI(data)
+    }
+
+    suspend fun readData(dateTime: LocalDateTime): DailySummary {
         val totalSteps = readTotalSteps(dateTime)
         val activeTimeInMinutes = readTotalActiveTimeInMinutes(dateTime)
         val exerciseCalories = readTotalActiveCaloriesBurned(dateTime)
         val totalBurnedCalories = readTotalCaloriesBurned(dateTime)
         val distanceWhileActive = readTotalDistance(dateTime)
-        val exerciseList = exerciserService.readExercises(dateTime = dateTime)
+        val exerciseList = exerciserService.readData(dateTime = dateTime)
 
-        val dailySummary = DailySummary(
+        return DailySummary(
             date = dateTime.toLocalDate(),
             totalSteps = totalSteps,
             activeTimeInMinutes = activeTimeInMinutes,
@@ -45,8 +45,6 @@ class DailySummaryService(
                 }
             }
         )
-        Log.d(TAG, "Daily Summary: $dailySummary")
-        this.dailySummaryApiService.sendToApi(dailySummary)
     }
 
     suspend fun readTotalDistance(dateTime: LocalDateTime): Long {
@@ -148,5 +146,13 @@ class DailySummaryService(
             Log.e(TAG, "Error reading steps", exception)
         }
         return 0
+    }
+
+    suspend fun sendDataToAPI(data: DailySummary) {
+        try {
+            dailySummaryApiService.sendToApi(data)
+        } catch (exception: Exception) {
+            Log.e(TAG, "Error reading steps", exception)
+        }
     }
 }

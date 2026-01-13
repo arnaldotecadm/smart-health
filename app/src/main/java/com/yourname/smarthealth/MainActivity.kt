@@ -3,23 +3,15 @@ package com.yourname.smarthealth
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
-import android.util.Log
 import android.widget.Button
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.samsung.android.sdk.health.data.HealthDataService
-import com.samsung.android.sdk.health.data.HealthDataStore
 import com.samsung.android.sdk.health.data.error.HealthDataException
 import com.samsung.android.sdk.health.data.error.ResolvablePlatformException
 import com.samsung.android.sdk.health.data.permission.AccessType
 import com.samsung.android.sdk.health.data.permission.Permission
-import com.samsung.android.sdk.health.data.request.DataType
 import com.samsung.android.sdk.health.data.request.DataTypes
-import com.samsung.android.sdk.health.data.request.LocalTimeFilter
-import com.samsung.android.sdk.health.data.request.LocalTimeGroup
-import com.samsung.android.sdk.health.data.request.LocalTimeGroupUnit
-import com.samsung.android.sdk.health.data.request.Ordering
 import com.yourname.smarthealth.service.DailySummaryService
 import com.yourname.smarthealth.service.ExerciseService
 import com.yourname.smarthealth.service.HeartRateService
@@ -29,10 +21,8 @@ import com.yourname.smarthealth.service.api.DailySummaryApiService
 import com.yourname.smarthealth.service.api.ExerciseApiService
 import com.yourname.smarthealth.service.api.HeartRateSeriesApiService
 import com.yourname.smarthealth.service.api.SleepApiService
-import com.yourname.smarthealth.utils.Constants.TAG
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
-import java.time.LocalTime
 
 class MainActivity() : AppCompatActivity() {
 
@@ -46,7 +36,7 @@ class MainActivity() : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        val dateTimeToRetrieve = LocalDateTime.now().minusDays(1)
+        val dateTimeToRetrieve = LocalDateTime.now().minusDays(0)
 
         exerciseService = ExerciseService(
             healthDataStore = HealthDataService.getStore(applicationContext),
@@ -66,11 +56,6 @@ class MainActivity() : AppCompatActivity() {
             heartRateSeriesApiService = HeartRateSeriesApiService()
         )
 
-        val readStepsButton: Button = findViewById(R.id.readStepsButton)
-        readStepsButton.setOnClickListener {
-            readStepCount()
-        }
-
         val readExerciseButton: Button = findViewById(R.id.readExerciseButton)
         readExerciseButton.setOnClickListener {
             lifecycleScope.launch {
@@ -81,23 +66,14 @@ class MainActivity() : AppCompatActivity() {
         val readSleepButton: Button = findViewById(R.id.readSleepButton)
         readSleepButton.setOnClickListener {
             lifecycleScope.launch {
-                sleepService.readSleep(dateTimeToRetrieve)
+                sleepService.processSleepSession(dateTimeToRetrieve)
             }
         }
 
         val readDailySummary: Button = findViewById(R.id.readDailySummary)
         readDailySummary.setOnClickListener {
             lifecycleScope.launch {
-                for (i in 1..5) {
-                    val date = LocalDateTime.now().minusDays(i.toLong())
-                    dailySummaryService.dailySummary(date)
-
-                    Toast.makeText(
-                        this@MainActivity,
-                        "Daily Summary sent to API (${date})",
-                        Toast.LENGTH_LONG
-                    ).show()
-                }
+                dailySummaryService.processDailySummary(dateTimeToRetrieve)
             }
         }
 
@@ -105,11 +81,6 @@ class MainActivity() : AppCompatActivity() {
         readHeartRateButton.setOnClickListener {
             lifecycleScope.launch {
                 heartRateService.processExercises(dateTimeToRetrieve)
-                Toast.makeText(
-                    this@MainActivity,
-                    "Heart Rate Series sent to API",
-                    Toast.LENGTH_LONG
-                ).show()
             }
         }
 
@@ -121,35 +92,6 @@ class MainActivity() : AppCompatActivity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-    }
-
-    private fun readStepCount(
-        startTime: LocalDateTime = LocalDateTime.now().minusDays(120),
-        endTime: LocalDateTime = LocalDateTime.now()
-    ) {
-        lifecycleScope.launch {
-            try {
-                val healthDataStore = HealthDataService.getStore(applicationContext)
-                val localtimeFilter = LocalTimeFilter.of(startTime, endTime)
-
-                val readRequest = DataType.StepsType.TOTAL.requestBuilder
-                    .setLocalTimeFilterWithGroup(
-                        localtimeFilter,
-                        LocalTimeGroup.of(LocalTimeGroupUnit.DAILY, 1)
-                    )
-                    .setOrdering(Ordering.ASC)
-                    .build()
-
-                val dataList = healthDataStore.aggregateData(readRequest).dataList
-                dataList.forEach {
-                    val hourlyStepCount = it.value
-                }
-                val dailyStepCount = dataList.sumOf { it.value as Long }
-                Log.d(TAG, "Daily step count: $dailyStepCount")
-            } catch (exception: Exception) {
-                Log.e(TAG, "Error reading steps", exception)
-            }
-        }
     }
 
     suspend fun checkForPermissions(activity: Activity) {
@@ -184,24 +126,5 @@ class MainActivity() : AppCompatActivity() {
             // handle other types of HealthDataException
             error.printStackTrace()
         }
-    }
-
-    suspend fun getTotalStepsPerDay(healthDataStore: HealthDataStore) {
-        val todayDateTime = LocalDateTime.now().with(LocalTime.MIDNIGHT)
-        val todayLocalTimeFilter = LocalTimeFilter.of(todayDateTime, todayDateTime.plusDays(1))
-        val hourlyTimeGroup = LocalTimeGroup.of(LocalTimeGroupUnit.HOURLY, 1)
-        val stepsAggregateRequest = DataType.StepsType.TOTAL.requestBuilder
-            .setLocalTimeFilterWithGroup(todayLocalTimeFilter, hourlyTimeGroup)
-            .setOrdering(Ordering.ASC)
-            .build()
-        val hourlyStepsResponse = healthDataStore.aggregateData(stepsAggregateRequest)
-        val dataListSteps = hourlyStepsResponse.dataList
-        val sumOf = dataListSteps.sumOf { it.value!! }
-        Log.i(TAG, sumOf.toString())
-        dataListSteps.forEach { stepData ->
-            val hourlySteps: Long = stepData.value!!
-            Log.i(TAG, hourlySteps.toString())
-        }
-
     }
 }

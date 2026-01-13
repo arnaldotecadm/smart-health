@@ -18,10 +18,10 @@ class ExerciseService(
 ) {
 
     suspend fun processExercises(dateTime: LocalDateTime){
-        val exercises = readExercises(dateTime)
-        sendToApi(exercises)
+        val data = readData(dateTime)
+        sendDataToAPI(data)
     }
-    suspend fun readExercises(dateTime: LocalDateTime): List<HealthDataPoint> {
+    suspend fun readData(dateTime: LocalDateTime): List<HealthDataPoint> {
         try {
             val startTime = dateTime.toLocalDate().atTime(LocalTime.MIN)
             val endTime = dateTime.toLocalDate().atTime(LocalTime.MAX)
@@ -42,7 +42,7 @@ class ExerciseService(
         return emptyList()
     }
 
-    suspend fun sendToApi(data: List<HealthDataPoint>) {
+    suspend fun sendDataToAPI(data: List<HealthDataPoint>) {
         try {
             exerciseApiService.sendListToApi(data)
         } catch (exception: Exception) {

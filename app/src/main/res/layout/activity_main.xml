@@ -5,18 +5,6 @@
     android:padding="24dp">
 
     <Button
-        android:id="@+id/permissionButton"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Request Permission Fetch Steps" />
-
-    <Button
-        android:id="@+id/readStepsButton"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Read the steps" />
-
-    <Button
         android:id="@+id/readExerciseButton"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

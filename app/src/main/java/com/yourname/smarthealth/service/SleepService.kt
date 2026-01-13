@@ -6,6 +6,7 @@ import com.samsung.android.sdk.health.data.request.DataTypes
 import com.samsung.android.sdk.health.data.request.LocalTimeFilter
 import com.samsung.android.sdk.health.data.request.Ordering
 import com.yourname.smarthealth.mapper.HealthDataPointMapper.toModel
+import com.yourname.smarthealth.model.HealthDataPoint
 import com.yourname.smarthealth.service.api.SleepApiService
 import com.yourname.smarthealth.utils.Constants.TAG
 import java.time.LocalDateTime
@@ -16,7 +17,11 @@ class SleepService(
     val sleepApiService: SleepApiService
 ) {
 
-    suspend fun readSleep(dateTime: LocalDateTime) {
+    suspend fun processSleepSession(dateTime: LocalDateTime){
+        val data = readData(dateTime)
+        sendDataToAPI(data)
+    }
+    suspend fun readData(dateTime: LocalDateTime): List<HealthDataPoint> {
         try {
             val startTime = dateTime.toLocalDate().atTime(LocalTime.MIN)
             val endTime = dateTime.toLocalDate().atTime(LocalTime.MAX)
@@ -29,12 +34,18 @@ class SleepService(
 
             val dataList = healthDataStore.readData(readDataRequest).dataList
 
-            val healthDataPoints = dataList.toModel(dataType = DataTypes.SLEEP)
+            return dataList.toModel(dataType = DataTypes.SLEEP)
+        } catch (exception: Exception) {
+            Log.e(TAG, "Error reading steps", exception)
+        }
+        return emptyList()
+    }
 
-            sleepApiService.sendListToApi(healthDataPoints)
+    suspend fun sendDataToAPI(data: List<HealthDataPoint>) {
+        try {
+            sleepApiService.sendListToApi(data)
         } catch (exception: Exception) {
             Log.e(TAG, "Error reading steps", exception)
         }
     }
-
 }
