@@ -9,5 +9,6 @@ data class DailySummary(
     val exerciseCalories: Long,
     val totalBurnedCalories: Long,
     val distanceWhileActive: Long,
+    val sleepScore: Long,
     val exerciseList: List<DailySummaryActivity>
 )

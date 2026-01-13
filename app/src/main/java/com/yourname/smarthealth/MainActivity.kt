@@ -4,8 +4,13 @@ import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Button
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
 import com.samsung.android.sdk.health.data.HealthDataService
 import com.samsung.android.sdk.health.data.error.HealthDataException
 import com.samsung.android.sdk.health.data.error.ResolvablePlatformException
@@ -14,6 +19,7 @@ import com.samsung.android.sdk.health.data.permission.Permission
 import com.samsung.android.sdk.health.data.request.DataTypes
 import com.yourname.smarthealth.service.DailySummaryService
 import com.yourname.smarthealth.service.ExerciseService
+import com.yourname.smarthealth.service.UpdateApiWorker
 import com.yourname.smarthealth.service.HeartRateService
 import com.yourname.smarthealth.service.SleepService
 import com.yourname.smarthealth.service.api.ApiBackend
@@ -22,7 +28,9 @@ import com.yourname.smarthealth.service.api.ExerciseApiService
 import com.yourname.smarthealth.service.api.HeartRateSeriesApiService
 import com.yourname.smarthealth.service.api.SleepApiService
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 import java.time.LocalDateTime
+import java.util.concurrent.TimeUnit
 
 class MainActivity() : AppCompatActivity() {
 
@@ -36,7 +44,7 @@ class MainActivity() : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        val dateTimeToRetrieve = LocalDateTime.now().minusDays(0)
+        val dateTimeToRetrieve = LocalDateTime.now()
 
         exerciseService = ExerciseService(
             healthDataStore = HealthDataService.getStore(applicationContext),
@@ -84,14 +92,65 @@ class MainActivity() : AppCompatActivity() {
             }
         }
 
+        val triggerWorkerButton: Button = findViewById(R.id.triggerWorkerButton)
+        triggerWorkerButton.setOnClickListener {
+            triggerOneTimeWorker()
+        }
+
+        val updateAllMetricsButton: Button = findViewById(R.id.updateAll)
+        updateAllMetricsButton.setOnClickListener {
+            lifecycleScope.launch {
+                updateAll()
+            }
+        }
+
         lifecycleScope.launch {
             checkForPermissions(this@MainActivity)
         }
 
+        //schedulePeriodicExerciseProcessing()
+    }
+
+    private fun triggerOneTimeWorker() {
+        val updateAPIWorkRequest = OneTimeWorkRequestBuilder<UpdateApiWorker>().build()
+        WorkManager.getInstance(applicationContext).enqueue(updateAPIWorkRequest)
+    }
+
+    private fun schedulePeriodicExerciseProcessing() {
+        val exerciseWorkRequest = PeriodicWorkRequestBuilder<UpdateApiWorker>(15, TimeUnit.MINUTES)
+            .build()
+
+        WorkManager.getInstance(applicationContext).enqueueUniquePeriodicWork(
+            "UpdateAPIProcessingWork",
+            ExistingPeriodicWorkPolicy.KEEP,
+            exerciseWorkRequest
+        )
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+    }
+
+    suspend fun updateAll() {
+        var dateTimeToRetrieve = LocalDateTime.now()
+        do {
+            Toast.makeText(
+                this,
+                "Processing data from ${dateTimeToRetrieve.toLocalDate()}",
+                Toast.LENGTH_SHORT
+            ).show()
+            exerciseService.processExercises(dateTimeToRetrieve)
+            sleepService.processSleepSession(dateTimeToRetrieve)
+            dailySummaryService.processDailySummary(dateTimeToRetrieve)
+            heartRateService.processExercises(dateTimeToRetrieve)
+            dateTimeToRetrieve = dateTimeToRetrieve.minusDays(1)
+        } while (dateTimeToRetrieve.isAfter(LocalDate.parse("2025-01-01").atStartOfDay()))
+
+        Toast.makeText(
+            this,
+            "FINISHED",
+            Toast.LENGTH_LONG
+        ).show()
     }
 
     suspend fun checkForPermissions(activity: Activity) {

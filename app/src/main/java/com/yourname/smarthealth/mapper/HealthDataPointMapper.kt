@@ -17,7 +17,6 @@ object HealthDataPointMapper {
     }
 
     fun HealthDataPoint.toModel(dataType: DataType): HealthDataPointModel {
-        var sleepScore: Int? = null
         val data = when (dataType) {
             is DataType.ExerciseType -> {
                 val sessionList =
@@ -28,7 +27,6 @@ object HealthDataPointMapper {
             is DataType.SleepType -> {
                 val sessionList =
                     this.getValue(DataType.SleepType.SESSIONS) as List<SleepSession>
-                sleepScore = this.getValue(DataType.SleepType.SLEEP_SCORE) as Int
                 sessionList.toSleepSessionModel()
             }
 
@@ -56,8 +54,7 @@ object HealthDataPointMapper {
             uid = this.uid,
             updateTime = this.updateTime,
             zoneOffset = this.zoneOffset,
-            sessions = data,
-            sleepScore = sleepScore
+            sessions = data
         )
     }
 }

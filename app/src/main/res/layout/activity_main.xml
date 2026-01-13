@@ -28,6 +28,18 @@
         android:layout_height="wrap_content"
         android:text="@string/read_heart_rate" />
 
+    <Button
+        android:id="@+id/triggerWorkerButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/trigger_worker" />
+
+    <Button
+        android:id="@+id/updateAll"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/updateAll" />
+
     <TextView
         android:id="@+id/resultText"
         android:layout_width="match_parent"
