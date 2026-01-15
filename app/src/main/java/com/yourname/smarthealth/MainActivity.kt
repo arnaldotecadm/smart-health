@@ -89,7 +89,7 @@ class MainActivity() : AppCompatActivity() {
         val readHeartRateButton: Button = findViewById(R.id.readHeartRate)
         readHeartRateButton.setOnClickListener {
             lifecycleScope.launch {
-                heartRateService.processExercises(dateTimeToRetrieve)
+                heartRateService.processHeartRates(dateTimeToRetrieve)
             }
         }
 
@@ -143,7 +143,7 @@ class MainActivity() : AppCompatActivity() {
             exerciseService.processExercises(dateTimeToRetrieve)
             sleepService.processSleepSession(dateTimeToRetrieve)
             dailySummaryService.processDailySummary(dateTimeToRetrieve)
-            heartRateService.processExercises(dateTimeToRetrieve)
+            heartRateService.processHeartRates(dateTimeToRetrieve)
             dateTimeToRetrieve = dateTimeToRetrieve.minusDays(1)
         } while (dateTimeToRetrieve.isAfter(LocalDate.parse("2024-01-01").atStartOfDay()))
 

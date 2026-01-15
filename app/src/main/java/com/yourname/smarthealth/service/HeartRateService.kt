@@ -18,7 +18,7 @@ class HeartRateService(
     val heartRateSeriesApiService: HeartRateSeriesApiService
 ) {
 
-    suspend fun processExercises(dateTime: LocalDateTime) {
+    suspend fun processHeartRates(dateTime: LocalDateTime) {
         val data = readData(dateTime)
         data.chunked(1_000).forEach { batch ->
             sendToApi(batch)

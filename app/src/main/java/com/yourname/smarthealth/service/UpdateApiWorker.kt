@@ -46,7 +46,7 @@ class UpdateApiWorker(
             exerciseService.processExercises(dateTimeToRetrieve)
             sleepService.processSleepSession(dateTimeToRetrieve)
             dailySummaryService.processDailySummary(dateTimeToRetrieve)
-            heartRateService.processExercises(dateTimeToRetrieve)
+            heartRateService.processHeartRates(dateTimeToRetrieve)
             Result.success()
         } catch (e: Exception) {
             Log.e(Constants.TAG, "Error processing exercises in background", e)
