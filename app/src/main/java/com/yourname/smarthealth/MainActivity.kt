@@ -44,23 +44,24 @@ class MainActivity() : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        val dataStore = HealthDataService.getStore(applicationContext)
         val dateTimeToRetrieve = LocalDateTime.now()
 
         exerciseService = ExerciseService(
-            healthDataStore = HealthDataService.getStore(applicationContext),
+            healthDataStore = dataStore,
             exerciseApiService = ExerciseApiService()
         )
         sleepService = SleepService(
-            healthDataStore = HealthDataService.getStore(applicationContext),
+            healthDataStore = dataStore,
             sleepApiService = SleepApiService()
         )
         dailySummaryService = DailySummaryService(
-            healthDataStore = HealthDataService.getStore(applicationContext),
+            healthDataStore = dataStore,
             exerciserService = exerciseService,
             dailySummaryApiService = DailySummaryApiService(ApiBackend())
         )
         heartRateService = HeartRateService(
-            healthDataStore = HealthDataService.getStore(applicationContext),
+            healthDataStore = dataStore,
             heartRateSeriesApiService = HeartRateSeriesApiService()
         )
 
@@ -144,7 +145,7 @@ class MainActivity() : AppCompatActivity() {
             dailySummaryService.processDailySummary(dateTimeToRetrieve)
             heartRateService.processExercises(dateTimeToRetrieve)
             dateTimeToRetrieve = dateTimeToRetrieve.minusDays(1)
-        } while (dateTimeToRetrieve.isAfter(LocalDate.parse("2025-01-01").atStartOfDay()))
+        } while (dateTimeToRetrieve.isAfter(LocalDate.parse("2024-01-01").atStartOfDay()))
 
         Toast.makeText(
             this,
