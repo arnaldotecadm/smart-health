@@ -7,4 +7,7 @@
     <string name="press_button_to_get_steps">Press button to get steps</string>
     <string name="trigger_worker">Trigger Worker</string>
     <string name="updateAll">Update All Metrics</string>
+    <string name="title_home">Home</string>
+    <string name="title_dashboard">Dashboard</string>
+    <string name="title_notifications">Notifications</string>
 </resources>
