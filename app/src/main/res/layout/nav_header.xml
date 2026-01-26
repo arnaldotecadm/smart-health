@@ -5,7 +5,10 @@
     android:background="?attr/colorPrimary"
     android:gravity="bottom"
     android:orientation="vertical"
-    android:padding="16dp"
+    android:paddingTop="?attr/actionBarSize"
+    android:paddingLeft="16dp"
+    android:paddingRight="16dp"
+    android:paddingBottom="16dp"
     android:theme="@style/ThemeOverlay.AppCompat.Dark">
 
     <ImageView
