@@ -71,39 +71,7 @@ class HomeFragment : Fragment() {
             heartRateSeriesApiService = HeartRateSeriesApiService()
         )
 
-        view.findViewById<Button>(R.id.readExerciseButton).setOnClickListener {
-            lifecycleScope.launch {
-                exerciseService.processExercises(dateTimeToRetrieve)
-            }
-        }
 
-        view.findViewById<Button>(R.id.readSleepButton).setOnClickListener {
-            lifecycleScope.launch {
-                sleepService.processSleepSession(dateTimeToRetrieve)
-            }
-        }
-
-        view.findViewById<Button>(R.id.readDailySummary).setOnClickListener {
-            lifecycleScope.launch {
-                dailySummaryService.processDailySummary(dateTimeToRetrieve)
-            }
-        }
-
-        view.findViewById<Button>(R.id.readHeartRate).setOnClickListener {
-            lifecycleScope.launch {
-                heartRateService.processHeartRates(dateTimeToRetrieve)
-            }
-        }
-
-        view.findViewById<Button>(R.id.triggerWorkerButton).setOnClickListener {
-            triggerOneTimeWorker()
-        }
-
-        view.findViewById<Button>(R.id.updateAll).setOnClickListener {
-            lifecycleScope.launch {
-                updateAll()
-            }
-        }
 
         lifecycleScope.launch {
             checkForPermissions(requireActivity())

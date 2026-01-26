@@ -1,51 +1,111 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.core.widget.NestedScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android.padding="24dp">
+    android:clipToPadding="false"
+    android:paddingBottom="80dp"
+    app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
-    <Button
-        android:id="@+id/readExerciseButton"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/read_the_exercises" />
+        android:orientation="vertical">
 
-    <Button
-        android:id="@+id/readSleepButton"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="@string/read_the_sleeps" />
+        <!-- Connection Status -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_margin="16dp"
+            app:cardCornerRadius="16dp"
+            app:cardBackgroundColor="@color/primaryContainer">
 
-    <Button
-        android:id="@+id/readDailySummary"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="@string/read_daily_summary" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="16dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
 
-    <Button
-        android:id="@+id/readHeartRate"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="@string/read_heart_rate" />
+                <ImageView
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:src="@drawable/ic_cloud_done"
+                    app:tint="@color/white"
+                    android:background="@drawable/bg_circle_primary"
+                    android:padding="8dp"/>
 
-    <Button
-        android:id="@+id/triggerWorkerButton"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="@string/trigger_worker" />
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="12dp"
+                    android:orientation="vertical">
 
-    <Button
-        android:id="@+id/updateAll"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="@string/updateAll" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/cloud_connection"
+                        android:textAllCaps="true"
+                        android:textSize="12sp"
+                        android:textColor="@color/primary"/>
 
-    <TextView
-        android:id="@+id/resultText"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:text="@string/press_button_to_get_steps" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/samsung_health_api_connected"
+                        android:textStyle="bold"
+                        android:textSize="14sp"/>
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
 
-</LinearLayout>
+        <!-- Sync All Button -->
+        <com.google.android.material.button.MaterialButton
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:layout_marginHorizontal="16dp"
+            android:layout_marginBottom="16dp"
+            android:text="@string/sync_all_health_data"
+            android:textStyle="bold"
+            app:icon="@drawable/ic_sync"
+            app:iconGravity="textStart"
+            app:iconSize="24dp"
+            app:iconPadding="8dp"
+            app:cornerRadius="16dp"/>
+
+        <!-- Section Header -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="16dp"
+            android:text="@string/data_categories"
+            android:textSize="18sp"
+            android:textStyle="bold"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginBottom="8dp"
+            android:text="@string/auto_sync_message"
+            android:textSize="12sp"
+            android:textColor="?colorOnSurfaceVariant"/>
+
+        <!-- Cards List -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <!-- Reusable Card Example -->
+            <include layout="@layout/item_sync_card_heart_rate"/>
+            <include layout="@layout/item_sync_card_sleep"/>
+            <include layout="@layout/item_sync_card_heart_rate"/>
+            <include layout="@layout/item_sync_card_sleep"/>
+
+        </LinearLayout>
+
+    </LinearLayout>
+</androidx.core.widget.NestedScrollView>
