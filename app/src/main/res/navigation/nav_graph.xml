@@ -7,19 +7,19 @@
 
     <fragment
         android:id="@+id/navigation_home"
-        android:name="com.yourname.smarthealth.ui.home.HomeFragment"
+        android:name="com.arvion.smarthealth.ui.home.HomeFragment"
         android:label="Home"
         tools:layout="@layout/fragment_home" />
 
     <fragment
         android:id="@+id/navigation_dashboard"
-        android:name="com.yourname.smarthealth.ui.dashboard.DashboardFragment"
+        android:name="com.arvion.smarthealth.ui.dashboard.DashboardFragment"
         android:label="Dashboard"
         tools:layout="@layout/fragment_dashboard" />
 
     <fragment
         android:id="@+id/navigation_notifications"
-        android:name="com.yourname.smarthealth.ui.notifications.NotificationsFragment"
+        android:name="com.arvion.smarthealth.ui.notifications.NotificationsFragment"
         android:label="Notifications"
         tools:layout="@layout/fragment_notifications" />
 

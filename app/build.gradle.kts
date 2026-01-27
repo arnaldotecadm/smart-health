@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.yourname.smarthealth"
+    namespace = "com.arvion.smarthealth"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.yourname.smarthealth"
+        applicationId = "com.arvion.smarthealth"
         minSdk = 29
         targetSdk = 36
         versionCode = 1
