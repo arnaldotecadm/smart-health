@@ -22,6 +22,7 @@
             app:cardBackgroundColor="@color/primaryContainer">
 
             <LinearLayout
+                android:visibility="invisible"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:padding="16dp"
@@ -63,6 +64,7 @@
 
         <!-- Sync All Button -->
         <com.google.android.material.button.MaterialButton
+            android:id="@+id/updateAll"
             android:layout_width="match_parent"
             android:layout_height="56dp"
             android:layout_marginHorizontal="16dp"
