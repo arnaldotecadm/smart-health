@@ -103,7 +103,7 @@ class HomeFragment : Fragment() {
         */
         view.findViewById<Button>(R.id.updateAll).setOnClickListener {
             lifecycleScope.launch {
-                updateAll()
+                //updateAll()
             }
         }
 

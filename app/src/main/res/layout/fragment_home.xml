@@ -102,10 +102,10 @@
             android:orientation="vertical">
 
             <!-- Reusable Card Example -->
-            <include layout="@layout/item_sync_card_heart_rate"/>
-            <include layout="@layout/item_sync_card_sleep"/>
             <include layout="@layout/item_sync_card_exercise"/>
+            <include layout="@layout/item_sync_card_sleep"/>
             <include layout="@layout/item_sync_card_daily_summary"/>
+            <include layout="@layout/item_sync_card_heart_rate"/>
 
         </LinearLayout>
 
