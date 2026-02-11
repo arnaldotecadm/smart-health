@@ -52,132 +52,98 @@ class DailySummaryService(
     }
 
     suspend fun readTotalDistance(dateTime: LocalDateTime): Long {
-        try {
-            val startTime = dateTime.toLocalDate().atTime(LocalTime.MIN)
-            val endTime = dateTime.toLocalDate().atTime(LocalTime.MAX)
+        val startTime = dateTime.toLocalDate().atTime(LocalTime.MIN)
+        val endTime = dateTime.toLocalDate().atTime(LocalTime.MAX)
 
-            val localtimeFilter = LocalTimeFilter.of(startTime, endTime)
-            val readRequest = DataType.ActivitySummaryType.TOTAL_DISTANCE.requestBuilder
-                .setLocalTimeFilter(localtimeFilter)
-                .build()
+        val localtimeFilter = LocalTimeFilter.of(startTime, endTime)
+        val readRequest = DataType.ActivitySummaryType.TOTAL_DISTANCE.requestBuilder
+            .setLocalTimeFilter(localtimeFilter)
+            .build()
 
-            val dataList = healthDataStore.aggregateData(readRequest).dataList
-            val total = dataList.sumOf { it.value?.toLong() ?: 0L }
-            Log.d(TAG, "Daily total Distance: $total")
-            return total
-        } catch (exception: Exception) {
-            Log.e(TAG, "Error reading total Distance", exception)
-        }
-        return 0
+        val dataList = healthDataStore.aggregateData(readRequest).dataList
+        val total = dataList.sumOf { it.value?.toLong() ?: 0L }
+        Log.d(TAG, "Daily total Distance: $total")
+        return total
     }
 
     suspend fun readTotalActiveTimeInMinutes(dateTime: LocalDateTime): Long {
-        try {
-            val startTime = dateTime.toLocalDate().atTime(LocalTime.MIN)
-            val endTime = dateTime.toLocalDate().atTime(LocalTime.MAX)
+        val startTime = dateTime.toLocalDate().atTime(LocalTime.MIN)
+        val endTime = dateTime.toLocalDate().atTime(LocalTime.MAX)
 
-            val localtimeFilter = LocalTimeFilter.of(startTime, endTime)
-            val readRequest = DataType.ActivitySummaryType.TOTAL_ACTIVE_TIME.requestBuilder
-                .setLocalTimeFilter(localtimeFilter)
-                .build()
+        val localtimeFilter = LocalTimeFilter.of(startTime, endTime)
+        val readRequest = DataType.ActivitySummaryType.TOTAL_ACTIVE_TIME.requestBuilder
+            .setLocalTimeFilter(localtimeFilter)
+            .build()
 
-            val dataList = healthDataStore.aggregateData(readRequest).dataList
-            val total = dataList.sumOf { it.value?.toMinutes() ?: 0L }
-            Log.d(TAG, "Daily total Active Time: $total")
-            return total
-        } catch (exception: Exception) {
-            Log.e(TAG, "Error reading total Active Time", exception)
-        }
-        return 0
+        val dataList = healthDataStore.aggregateData(readRequest).dataList
+        val total = dataList.sumOf { it.value?.toMinutes() ?: 0L }
+        Log.d(TAG, "Daily total Active Time: $total")
+        return total
     }
 
     suspend fun readTotalCaloriesBurned(dateTime: LocalDateTime): Long {
-        try {
-            val startTime = dateTime.toLocalDate().atTime(LocalTime.MIN)
-            val endTime = dateTime.toLocalDate().atTime(LocalTime.MAX)
+        val startTime = dateTime.toLocalDate().atTime(LocalTime.MIN)
+        val endTime = dateTime.toLocalDate().atTime(LocalTime.MAX)
 
-            val localtimeFilter = LocalTimeFilter.of(startTime, endTime)
-            val readRequest = DataType.ActivitySummaryType.TOTAL_CALORIES_BURNED.requestBuilder
-                .setLocalTimeFilter(localtimeFilter)
-                .build()
+        val localtimeFilter = LocalTimeFilter.of(startTime, endTime)
+        val readRequest = DataType.ActivitySummaryType.TOTAL_CALORIES_BURNED.requestBuilder
+            .setLocalTimeFilter(localtimeFilter)
+            .build()
 
-            val dataList = healthDataStore.aggregateData(readRequest).dataList
-            val total = dataList.sumOf { it.value?.toLong() ?: 0L }
-            Log.d(TAG, "Daily total Calories Burned: $total")
-            return total
-        } catch (exception: Exception) {
-            Log.e(TAG, "Error reading total Calories Burned", exception)
-        }
-        return 0
+        val dataList = healthDataStore.aggregateData(readRequest).dataList
+        val total = dataList.sumOf { it.value?.toLong() ?: 0L }
+        Log.d(TAG, "Daily total Calories Burned: $total")
+        return total
     }
 
     suspend fun readTotalActiveCaloriesBurned(dateTime: LocalDateTime): Long {
-        try {
-            val startTime = dateTime.toLocalDate().atTime(LocalTime.MIN)
-            val endTime = dateTime.toLocalDate().atTime(LocalTime.MAX)
+        val startTime = dateTime.toLocalDate().atTime(LocalTime.MIN)
+        val endTime = dateTime.toLocalDate().atTime(LocalTime.MAX)
 
-            val localtimeFilter = LocalTimeFilter.of(startTime, endTime)
-            val readRequest =
-                DataType.ActivitySummaryType.TOTAL_ACTIVE_CALORIES_BURNED.requestBuilder
-                    .setLocalTimeFilter(localtimeFilter)
-                    .build()
+        val localtimeFilter = LocalTimeFilter.of(startTime, endTime)
+        val readRequest =
+            DataType.ActivitySummaryType.TOTAL_ACTIVE_CALORIES_BURNED.requestBuilder
+                .setLocalTimeFilter(localtimeFilter)
+                .build()
 
-            val dataList = healthDataStore.aggregateData(readRequest).dataList
-            val total = dataList.sumOf { it.value?.toLong() ?: 0L }
-            Log.d(TAG, "Daily total Active Calories Burned: $total")
-            return total
-        } catch (exception: Exception) {
-            Log.e(TAG, "Error reading total Active Calories Burned", exception)
-        }
-        return 0
+        val dataList = healthDataStore.aggregateData(readRequest).dataList
+        val total = dataList.sumOf { it.value?.toLong() ?: 0L }
+        Log.d(TAG, "Daily total Active Calories Burned: $total")
+        return total
     }
 
     suspend fun readTotalSteps(dateTime: LocalDateTime): Long {
-        try {
-            val startTime = dateTime.toLocalDate().atTime(LocalTime.MIN)
-            val endTime = dateTime.toLocalDate().atTime(LocalTime.MAX)
+        val startTime = dateTime.toLocalDate().atTime(LocalTime.MIN)
+        val endTime = dateTime.toLocalDate().atTime(LocalTime.MAX)
 
-            val localtimeFilter = LocalTimeFilter.of(startTime, endTime)
-            val readRequest = DataType.StepsType.TOTAL.requestBuilder
-                .setLocalTimeFilter(localtimeFilter)
-                .build()
+        val localtimeFilter = LocalTimeFilter.of(startTime, endTime)
+        val readRequest = DataType.StepsType.TOTAL.requestBuilder
+            .setLocalTimeFilter(localtimeFilter)
+            .build()
 
-            val dataList = healthDataStore.aggregateData(readRequest).dataList
-            val dailyStepCount = dataList.sumOf { it.value as Long }
-            Log.d(TAG, "Daily total steps: $dailyStepCount")
-            return dailyStepCount
-        } catch (exception: Exception) {
-            Log.e(TAG, "Error reading steps", exception)
-        }
-        return 0
+        val dataList = healthDataStore.aggregateData(readRequest).dataList
+        val dailyStepCount = dataList.sumOf { it.value as Long }
+        Log.d(TAG, "Daily total steps: $dailyStepCount")
+        return dailyStepCount
     }
 
     suspend fun readSleepScore(dateTime: LocalDateTime): Long {
-        try {
-            val startTime = dateTime.toLocalDate().atTime(LocalTime.MIN)
-            val endTime = dateTime.toLocalDate().atTime(LocalTime.MAX)
+        val startTime = dateTime.toLocalDate().atTime(LocalTime.MIN)
+        val endTime = dateTime.toLocalDate().atTime(LocalTime.MAX)
 
-            val localtimeFilter = LocalTimeFilter.of(startTime, endTime)
-            val readDataRequest = DataTypes.SLEEP.readDataRequestBuilder
-                .setLocalTimeFilter(localtimeFilter)
-                .setOrdering(Ordering.DESC)
-                .build()
+        val localtimeFilter = LocalTimeFilter.of(startTime, endTime)
+        val readDataRequest = DataTypes.SLEEP.readDataRequestBuilder
+            .setLocalTimeFilter(localtimeFilter)
+            .setOrdering(Ordering.DESC)
+            .build()
 
-            val dataList = healthDataStore.readData(readDataRequest).dataList
-            val sleepScore = dataList.first().getValue(DataType.SleepType.SLEEP_SCORE) ?: 0
-            Log.d(TAG, "Daily sleep score: $sleepScore")
-            return sleepScore.toLong()
-        } catch (exception: Exception) {
-            Log.e(TAG, "Error reading steps", exception)
-        }
-        return 0
+        val dataList = healthDataStore.readData(readDataRequest).dataList
+        val sleepScore = dataList.first().getValue(DataType.SleepType.SLEEP_SCORE) ?: 0
+        Log.d(TAG, "Daily sleep score: $sleepScore")
+        return sleepScore.toLong()
     }
 
     suspend fun sendDataToAPI(data: DailySummary) {
-        try {
-            dailySummaryApiService.sendToApi(data)
-        } catch (exception: Exception) {
-            Log.e(TAG, "Error reading steps", exception)
-        }
+        dailySummaryApiService.sendToApi(data)
     }
 }

@@ -9,21 +9,11 @@ class DailySummaryApiService(val apiBackend: ApiBackend) {
     suspend fun sendToApi(
         dailySummary: DailySummary
     ) {
-        try {
-            val response = apiBackend.apiService.postDailySummary(dailySummary)
-            if (response.isSuccessful) {
-                return response.body()!!
-            } else {
-                Log.i(
-                    TAG,
-                    "There was an error while trying to persist the data into the backend: ${response.errorBody()}"
-                )
-            }
-        } catch (e: Exception) {
-            Log.i(
-                TAG,
-                "There was an error while trying to persist the data into the backend: ${e.message}"
-            )
+        val response = apiBackend.apiService.postDailySummary(dailySummary)
+        if (response.isSuccessful) {
+            return response.body()!!
+        } else {
+            throw Exception("Failed to send daily summary to API: ${response.code()} - ${response.message()}")
         }
     }
 }

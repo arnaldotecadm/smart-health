@@ -1,7 +1,5 @@
 package com.arvion.smarthealth.service.api
 
-import android.util.Log
-import com.arvion.smarthealth.utils.Constants.TAG
 import com.arvion.smarthealth.model.HealthDataPoint as HealthDataPointModel
 
 class SleepApiService : ApiBackend() {
@@ -18,11 +16,7 @@ class SleepApiService : ApiBackend() {
             //return response.body()!!
             return true
         } else {
-            Log.i(
-                TAG,
-                "There was an error while trying to persist the data into the backend: ${response.errorBody()}"
-            )
+            throw Exception("Failed to send Sleeps to API: ${response.code()} - ${response.message()}")
         }
-        return false
     }
 }

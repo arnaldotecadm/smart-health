@@ -4,13 +4,13 @@ import android.content.Context
 import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.samsung.android.sdk.health.data.HealthDataService
 import com.arvion.smarthealth.service.api.ApiBackend
 import com.arvion.smarthealth.service.api.DailySummaryApiService
 import com.arvion.smarthealth.service.api.ExerciseApiService
 import com.arvion.smarthealth.service.api.HeartRateSeriesApiService
 import com.arvion.smarthealth.service.api.SleepApiService
 import com.arvion.smarthealth.utils.Constants
+import com.samsung.android.sdk.health.data.HealthDataService
 import java.time.LocalDateTime
 
 class UpdateApiWorker(

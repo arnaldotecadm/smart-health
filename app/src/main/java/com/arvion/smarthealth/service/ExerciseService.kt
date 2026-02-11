@@ -47,24 +47,18 @@ class ExerciseService(
     }
 
     suspend fun readData(dateTime: LocalDateTime): List<HealthDataPoint> {
-        try {
-            val startTime = dateTime.toLocalDate().atTime(LocalTime.MIN)
-            val endTime = dateTime.toLocalDate().atTime(LocalTime.MAX)
+        val startTime = dateTime.toLocalDate().atTime(LocalTime.MIN)
+        val endTime = dateTime.toLocalDate().atTime(LocalTime.MAX)
 
-            val localtimeFilter = LocalTimeFilter.of(startTime, endTime)
-            val readDataRequest = DataTypes.EXERCISE.readDataRequestBuilder
-                .setLocalTimeFilter(localtimeFilter)
-                .setOrdering(Ordering.DESC)
-                .build()
+        val localtimeFilter = LocalTimeFilter.of(startTime, endTime)
+        val readDataRequest = DataTypes.EXERCISE.readDataRequestBuilder
+            .setLocalTimeFilter(localtimeFilter)
+            .setOrdering(Ordering.DESC)
+            .build()
 
-            val dataList = healthDataStore.readData(readDataRequest).dataList
+        val dataList = healthDataStore.readData(readDataRequest).dataList
 
-            return dataList.toModel(dataType = DataTypes.EXERCISE)
-
-        } catch (exception: Exception) {
-            Log.e(TAG, "Error reading steps", exception)
-        }
-        return emptyList()
+        return dataList.toModel(dataType = DataTypes.EXERCISE)
     }
 
     private suspend fun sendDataToAPI(data: List<HealthDataPoint>): List<Boolean> {
