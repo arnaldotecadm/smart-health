@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     id("kotlin-parcelize")
+    id("kotlin-kapt")
 }
 
 android {
@@ -52,7 +53,7 @@ dependencies {
 
     // Room for database storage
     implementation(libs.androidx.room.runtime)
-    //kapt("androidx.room:room-compiler:2.6.1")
+    kapt("androidx.room:room-compiler:2.7.2")
     implementation(libs.androidx.room.ktx)
 
     // WorkManager for background sync

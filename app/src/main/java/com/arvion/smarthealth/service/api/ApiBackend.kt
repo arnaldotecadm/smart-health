@@ -22,11 +22,13 @@ open class ApiBackend {
 
     open suspend fun sendListToApi(
         healthDataPoints: List<HealthDataPointModel>
-    ) {
+    ): List<Boolean> {
+        return emptyList()
     }
 
     open suspend fun sendToApi(
         healthDataPoint: HealthDataPointModel
-    ) {
+    ): Boolean {
+        return false
     }
 }

@@ -18,6 +18,7 @@ import com.samsung.android.sdk.health.data.permission.AccessType
 import com.samsung.android.sdk.health.data.permission.Permission
 import com.samsung.android.sdk.health.data.request.DataTypes
 import com.arvion.smarthealth.R
+import com.arvion.smarthealth.database.AppDatabase
 import com.arvion.smarthealth.service.DailySummaryService
 import com.arvion.smarthealth.service.ExerciseService
 import com.arvion.smarthealth.service.HeartRateService
@@ -51,9 +52,11 @@ class HomeFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         val dataStore = HealthDataService.getStore(requireActivity().applicationContext)
-        val dateTimeToRetrieve = LocalDateTime.now()
+        val dateTimeToRetrieve = LocalDateTime.of(2026,2,8,0,0)
+        AppDatabase.getDatabase(requireContext()).openHelper.writableDatabase
 
         exerciseService = ExerciseService(
+            context = requireContext(),
             healthDataStore = dataStore,
             exerciseApiService = ExerciseApiService()
         )

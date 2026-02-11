@@ -1,15 +1,15 @@
 package com.arvion.smarthealth.service
 
 import android.util.Log
+import com.arvion.smarthealth.mapper.RecordSessionMapper.toDailySummaryActivityModel
+import com.arvion.smarthealth.model.DailySummary
+import com.arvion.smarthealth.service.api.DailySummaryApiService
+import com.arvion.smarthealth.utils.Constants.TAG
 import com.samsung.android.sdk.health.data.HealthDataStore
 import com.samsung.android.sdk.health.data.request.DataType
 import com.samsung.android.sdk.health.data.request.DataTypes
 import com.samsung.android.sdk.health.data.request.LocalTimeFilter
 import com.samsung.android.sdk.health.data.request.Ordering
-import com.arvion.smarthealth.mapper.RecordSessionMapper.toDailySummaryActivityModel
-import com.arvion.smarthealth.model.DailySummary
-import com.arvion.smarthealth.service.api.DailySummaryApiService
-import com.arvion.smarthealth.utils.Constants.TAG
 import java.time.LocalDateTime
 import java.time.LocalTime
 

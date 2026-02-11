@@ -19,6 +19,7 @@ class UpdateApiWorker(
 ) : CoroutineWorker(appContext, workerParams) {
 
     val exerciseService = ExerciseService(
+        context = appContext,
         healthDataStore = HealthDataService.getStore(applicationContext),
         exerciseApiService = ExerciseApiService()
     )
