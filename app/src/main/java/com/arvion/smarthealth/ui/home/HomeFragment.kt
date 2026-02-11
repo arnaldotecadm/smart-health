@@ -6,6 +6,8 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
+import android.widget.LinearLayout
+import android.widget.ProgressBar
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
@@ -74,9 +76,16 @@ class HomeFragment : Fragment() {
             heartRateSeriesApiService = HeartRateSeriesApiService()
         )
 
+        val metricContent = view.findViewById<LinearLayout>(R.id.metricContent)
+        val metricProgress = view.findViewById<ProgressBar>(R.id.metricProgress)
+
         view.findViewById<Button>(R.id.readExerciseButton).setOnClickListener {
             lifecycleScope.launch {
+                metricContent.visibility = View.GONE
+                metricProgress.visibility = View.VISIBLE
                 exerciseService.processExercises(dateTimeToRetrieve)
+                metricContent.visibility = View.VISIBLE
+                metricProgress.visibility = View.GONE
             }
         }
 
