@@ -13,12 +13,6 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
-import com.samsung.android.sdk.health.data.HealthDataService
-import com.samsung.android.sdk.health.data.error.HealthDataException
-import com.samsung.android.sdk.health.data.error.ResolvablePlatformException
-import com.samsung.android.sdk.health.data.permission.AccessType
-import com.samsung.android.sdk.health.data.permission.Permission
-import com.samsung.android.sdk.health.data.request.DataTypes
 import com.arvion.smarthealth.R
 import com.arvion.smarthealth.database.AppDatabase
 import com.arvion.smarthealth.service.DailySummaryService
@@ -31,6 +25,12 @@ import com.arvion.smarthealth.service.api.DailySummaryApiService
 import com.arvion.smarthealth.service.api.ExerciseApiService
 import com.arvion.smarthealth.service.api.HeartRateSeriesApiService
 import com.arvion.smarthealth.service.api.SleepApiService
+import com.samsung.android.sdk.health.data.HealthDataService
+import com.samsung.android.sdk.health.data.error.HealthDataException
+import com.samsung.android.sdk.health.data.error.ResolvablePlatformException
+import com.samsung.android.sdk.health.data.permission.AccessType
+import com.samsung.android.sdk.health.data.permission.Permission
+import com.samsung.android.sdk.health.data.request.DataTypes
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -54,7 +54,7 @@ class HomeFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         val dataStore = HealthDataService.getStore(requireActivity().applicationContext)
-        val dateTimeToRetrieve = LocalDateTime.of(2026,2,8,0,0)
+        val dateTimeToRetrieve = LocalDateTime.of(2026, 2, 8, 0, 0)
         AppDatabase.getDatabase(requireContext()).openHelper.writableDatabase
 
         exerciseService = ExerciseService(
@@ -76,11 +76,10 @@ class HomeFragment : Fragment() {
             heartRateSeriesApiService = HeartRateSeriesApiService()
         )
 
-        val metricContent = view.findViewById<LinearLayout>(R.id.metricContent)
-        val metricProgress = view.findViewById<ProgressBar>(R.id.metricProgress)
-
         view.findViewById<Button>(R.id.readExerciseButton).setOnClickListener {
             lifecycleScope.launch {
+                val metricContent = view.findViewById<LinearLayout>(R.id.metricContent)
+                val metricProgress = view.findViewById<ProgressBar>(R.id.metricProgress)
                 metricContent.visibility = View.GONE
                 metricProgress.visibility = View.VISIBLE
                 exerciseService.processExercises(dateTimeToRetrieve)

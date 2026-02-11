@@ -17,7 +17,7 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 
 class ExerciseService(
-    context: Context,
+    private val context: Context,
     private val healthDataStore: HealthDataStore,
     private val exerciseApiService: ExerciseApiService
 ) {
@@ -28,7 +28,7 @@ class ExerciseService(
         if (syncLogDao.getSyncLog(date, SyncType.EXERCISE.name) == null) {
             val data = readData(dateTime)
             val returnAPI = sendDataToAPI(data)
-            if (returnAPI.all { it }) {
+            if (returnAPI.isNotEmpty() && returnAPI.all { it }) {
                 syncLogDao.insert(
                     SyncLog(
                         date = date,
@@ -68,11 +68,6 @@ class ExerciseService(
     }
 
     private suspend fun sendDataToAPI(data: List<HealthDataPoint>): List<Boolean> {
-        try {
-            return exerciseApiService.sendListToApi(data)
-        } catch (exception: Exception) {
-            Log.e(TAG, "Error reading steps", exception)
-        }
-        return emptyList()
+        return exerciseApiService.sendListToApi(data)
     }
 }
