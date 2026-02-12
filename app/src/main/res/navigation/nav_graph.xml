@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/nav_graph"
-    app:startDestination="@id/navigation_home">
+    app:startDestination="@id/navigation_samsung_health_not_installed">
 
     <fragment
         android:id="@+id/navigation_home"
@@ -22,5 +22,15 @@
         android:name="com.arvion.smarthealth.ui.notifications.NotificationsFragment"
         android:label="Notifications"
         tools:layout="@layout/fragment_notifications" />
+
+    <fragment android:id="@+id/navigation_samsung_health_not_installed"
+        android:name="com.arvion.smarthealth.ui.samsung.SamsungHealthNotInstalledFragment"
+        android:label="Samsung Health Required"
+        tools:layout="@layout/fragment_samsung_health_not_installed" />
+
+    <fragment android:id="@+id/fragment_enable_developer_mode"
+        android:name="com.arvion.smarthealth.ui.samsung.EnableDeveloperModeFragment"
+        android:label="Samsung Health Required"
+        tools:layout="@layout/fragment_enable_developer_mode" />
 
 </navigation>

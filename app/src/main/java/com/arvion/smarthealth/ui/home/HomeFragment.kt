@@ -10,6 +10,7 @@ import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.Toast
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.commit
 import androidx.lifecycle.lifecycleScope
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
@@ -25,7 +26,9 @@ import com.arvion.smarthealth.service.api.DailySummaryApiService
 import com.arvion.smarthealth.service.api.ExerciseApiService
 import com.arvion.smarthealth.service.api.HeartRateSeriesApiService
 import com.arvion.smarthealth.service.api.SleepApiService
+import com.arvion.smarthealth.ui.samsung.EnableDeveloperModeFragment
 import com.samsung.android.sdk.health.data.HealthDataService
+import com.samsung.android.sdk.health.data.error.AuthorizationException
 import com.samsung.android.sdk.health.data.error.HealthDataException
 import com.samsung.android.sdk.health.data.error.ResolvablePlatformException
 import com.samsung.android.sdk.health.data.permission.AccessType
@@ -176,7 +179,13 @@ class HomeFragment : Fragment() {
                 healthDataStore.requestPermissions(permSet, activity)
             }
         } catch (error: HealthDataException) {
-            if (error is ResolvablePlatformException && error.hasResolution) {
+            if (error is AuthorizationException && error.errorCode == 2003) {
+                /*parentFragmentManager.commit {
+                    replace(R.id.drawer_layout, EnableDeveloperModeFragment())
+                    addToBackStack(null)
+                }
+                 */
+            } else if (error is ResolvablePlatformException && error.hasResolution) {
                 error.resolve(activity)
             }
             // handle other types of HealthDataException
