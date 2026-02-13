@@ -15,6 +15,7 @@ import androidx.navigation.ui.AppBarConfiguration
 import androidx.navigation.ui.navigateUp
 import androidx.navigation.ui.setupActionBarWithNavController
 import androidx.navigation.ui.setupWithNavController
+import com.arvion.smarthealth.service.PermissionService
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.android.material.navigation.NavigationView
 import kotlinx.coroutines.Dispatchers
@@ -26,20 +27,24 @@ class MainActivity : AppCompatActivity() {
     private lateinit var appBarConfiguration: AppBarConfiguration
     private lateinit var navController: NavController
     private var isBlockedScreenActive = false
+    private var isDeveloperModeBlocked = false
 
     lateinit var toolbar: Toolbar
     lateinit var drawerLayout: DrawerLayout
     lateinit var navView: NavigationView
     lateinit var bottomNavView: BottomNavigationView
 
+    val permissionService = PermissionService()
+
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-         toolbar = findViewById(R.id.toolbar)
-         drawerLayout = findViewById(R.id.drawer_layout)
-         navView = findViewById(R.id.nav_view)
-         bottomNavView = findViewById(R.id.bottom_nav_view)
+        toolbar = findViewById(R.id.toolbar)
+        drawerLayout = findViewById(R.id.drawer_layout)
+        navView = findViewById(R.id.nav_view)
+        bottomNavView = findViewById(R.id.bottom_nav_view)
 
         // 1. Initialize navController immediately
         val navHostFragment = supportFragmentManager
@@ -95,6 +100,16 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+
+        lifecycleScope.launch {
+            val errorCode = permissionService.checkForPermissions(this@MainActivity)
+
+            errorCode?.let {
+                if (it > 0 && errorCode == 2003) {
+                    navigateToDeveloperModeScreen()
+                }
+            }
+        }
     }
 
     private fun isSamsungHealthInstalled(): Boolean {
@@ -114,19 +129,51 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
 
         lifecycleScope.launch {
-            val installed = withContext(Dispatchers.IO) {
-                isSamsungHealthInstalled()
-            }
+            val samsungInstalled = withContext(Dispatchers.IO) { isSamsungHealthInstalled() }
+            val developerModeEnabled = permissionService.checkForPermissions(this@MainActivity) == 0
 
-            if (installed && isBlockedScreenActive) {
-                // User installed Samsung Health while app was in background
-                navigateToHomeAfterInstall()
-            } else if (!installed && !isBlockedScreenActive) {
-                // User removed Samsung Health while app was in background
-                navigateToBlockingScreen()
+            when {
+                // User fixed both issues → unlock app
+                samsungInstalled && developerModeEnabled && isBlockedScreenActive -> {
+                    navigateToHomeAfterInstall()
+                }
+
+                // Samsung Health missing → lock
+                !samsungInstalled && !isBlockedScreenActive -> {
+                    navigateToBlockingScreen()
+                }
+
+                // Developer mode missing → lock
+                !developerModeEnabled && !isDeveloperModeBlocked -> {
+                    navigateToDeveloperModeScreen()
+                }
             }
         }
     }
+
+
+    private fun navigateToDeveloperModeScreen() {
+        isBlockedScreenActive = true
+        isDeveloperModeBlocked = true
+
+        navController.navigate(
+            R.id.fragment_enable_developer_mode,
+            null,
+            navOptions {
+                popUpTo(navController.graph.startDestinationId) { inclusive = true }
+            }
+        )
+
+        drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED)
+        bottomNavView.isVisible = false
+        supportActionBar?.setDisplayHomeAsUpEnabled(false)
+        supportActionBar?.setHomeButtonEnabled(false)
+
+        onBackPressedDispatcher.addCallback(this) {
+            finishAffinity()
+        }
+    }
+
 
     private fun navigateToHomeAfterInstall() {
         isBlockedScreenActive = false

@@ -18,8 +18,39 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
-        android:text="To use this app, you need to enable Developer Mode in Samsung Health and select this app."
+        android:text="To use this app, you need to enable Developer Mode in Samsung Health and select this app. Follow these steps:"
         android:textAlignment="center" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="1. Open Samsung Health" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="2. Go to Settings > About Samsung Health" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="3. Tap the version number 10 times" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="4. Go back to Settings and enter Developer Mode \n
+        (Samsung Health Data SDK)" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="5. Developer Mode ofr Data Read => On" />
 
     <Button
         android:id="@+id/open_samsung_health_button"

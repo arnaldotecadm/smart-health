@@ -1,6 +1,5 @@
 package com.arvion.smarthealth.ui.home
 
-import android.app.Activity
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -10,7 +9,6 @@ import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.Toast
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.commit
 import androidx.lifecycle.lifecycleScope
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
@@ -26,14 +24,7 @@ import com.arvion.smarthealth.service.api.DailySummaryApiService
 import com.arvion.smarthealth.service.api.ExerciseApiService
 import com.arvion.smarthealth.service.api.HeartRateSeriesApiService
 import com.arvion.smarthealth.service.api.SleepApiService
-import com.arvion.smarthealth.ui.samsung.EnableDeveloperModeFragment
 import com.samsung.android.sdk.health.data.HealthDataService
-import com.samsung.android.sdk.health.data.error.AuthorizationException
-import com.samsung.android.sdk.health.data.error.HealthDataException
-import com.samsung.android.sdk.health.data.error.ResolvablePlatformException
-import com.samsung.android.sdk.health.data.permission.AccessType
-import com.samsung.android.sdk.health.data.permission.Permission
-import com.samsung.android.sdk.health.data.request.DataTypes
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -120,10 +111,6 @@ class HomeFragment : Fragment() {
                 //updateAll()
             }
         }
-
-        lifecycleScope.launch {
-            checkForPermissions(requireActivity())
-        }
     }
 
     private fun triggerOneTimeWorker() {
@@ -151,45 +138,5 @@ class HomeFragment : Fragment() {
             "FINISHED",
             Toast.LENGTH_LONG
         ).show()
-    }
-
-    suspend fun checkForPermissions(activity: Activity) {
-        val permSet = mutableSetOf(
-            Permission.of(DataTypes.HEART_RATE, AccessType.READ),
-            Permission.of(DataTypes.STEPS, AccessType.READ),
-            Permission.of(DataTypes.SLEEP_GOAL, AccessType.READ),
-            Permission.of(DataTypes.SLEEP, AccessType.READ),
-            Permission.of(DataTypes.BLOOD_OXYGEN, AccessType.READ),
-            Permission.of(DataTypes.BLOOD_GLUCOSE, AccessType.READ),
-            Permission.of(DataTypes.EXERCISE, AccessType.READ),
-            Permission.of(DataTypes.EXERCISE_LOCATION, AccessType.READ),
-            Permission.of(DataTypes.ACTIVITY_SUMMARY, AccessType.READ),
-            Permission.of(DataTypes.NUTRITION, AccessType.READ),
-            Permission.of(DataTypes.NUTRITION_GOAL, AccessType.READ),
-        )
-
-        try {
-            val healthDataStore = HealthDataService.getStore(activity.applicationContext)
-            val grantedPermissions = healthDataStore.getGrantedPermissions(permSet)
-
-            if (grantedPermissions.containsAll(permSet)) {
-                // All Permissions already granted
-            } else {
-                // Partial or No permission, we need to request for the permission popup
-                healthDataStore.requestPermissions(permSet, activity)
-            }
-        } catch (error: HealthDataException) {
-            if (error is AuthorizationException && error.errorCode == 2003) {
-                /*parentFragmentManager.commit {
-                    replace(R.id.drawer_layout, EnableDeveloperModeFragment())
-                    addToBackStack(null)
-                }
-                 */
-            } else if (error is ResolvablePlatformException && error.hasResolution) {
-                error.resolve(activity)
-            }
-            // handle other types of HealthDataException
-            error.printStackTrace()
-        }
     }
 }
