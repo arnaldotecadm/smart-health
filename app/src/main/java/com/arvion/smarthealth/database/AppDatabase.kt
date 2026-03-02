@@ -31,6 +31,7 @@ abstract class AppDatabase : RoomDatabase() {
                     "smarthealth_database"
                 )
                 //.addMigrations(MIGRATION_1_2)
+                    .fallbackToDestructiveMigration(true)
                 .build()
                 INSTANCE = instance
                 instance
