@@ -17,7 +17,7 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 
 class ExerciseService(
-    private val context: Context,
+    context: Context,
     private val healthDataStore: HealthDataStore,
     private val exerciseApiService: ExerciseApiService
 ) {
@@ -25,7 +25,7 @@ class ExerciseService(
 
     suspend fun processExercises(dateTime: LocalDateTime) {
         val date = dateTime.toLocalDate()
-        if (syncLogDao.getSyncLog(date, SyncType.EXERCISE.name) == null) {
+        if (syncLogDao.getSyncLog(date, SyncType.EXERCISE) == null) {
             val data = readData(dateTime)
             val returnAPI = sendDataToAPI(data)
             if (returnAPI.isNotEmpty() && returnAPI.all { it }) {
@@ -42,7 +42,6 @@ class ExerciseService(
             }
         } else {
             Log.d(TAG, "Data for $date has already been synced.")
-            syncLogDao.deleteByDate(date)
         }
     }
 

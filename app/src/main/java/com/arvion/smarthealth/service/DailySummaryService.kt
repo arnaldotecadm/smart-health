@@ -1,8 +1,12 @@
 package com.arvion.smarthealth.service
 
+import android.content.Context
 import android.util.Log
+import com.arvion.smarthealth.database.AppDatabase
 import com.arvion.smarthealth.mapper.RecordSessionMapper.toDailySummaryActivityModel
 import com.arvion.smarthealth.model.DailySummary
+import com.arvion.smarthealth.model.SyncLog
+import com.arvion.smarthealth.model.SyncType
 import com.arvion.smarthealth.service.api.DailySummaryApiService
 import com.arvion.smarthealth.utils.Constants.TAG
 import com.samsung.android.sdk.health.data.HealthDataStore
@@ -14,14 +18,40 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 
 class DailySummaryService(
+    context: Context,
     val healthDataStore: HealthDataStore,
     val exerciserService: ExerciseService,
     val dailySummaryApiService: DailySummaryApiService
 ) {
 
+    private val syncLogDao = AppDatabase.getDatabase(context).syncLogDao()
+
     suspend fun processDailySummary(dateTime: LocalDateTime) {
-        val data = readData(dateTime)
-        sendDataToAPI(data)
+        val date = dateTime.toLocalDate()
+        val syncLogByDateAndType = syncLogDao.getSyncLog(date, SyncType.DAILY_SUMMARY)
+        if (syncLogByDateAndType == null) {
+            val data = readData(dateTime)
+            val returnAPI = sendDataToAPI(data)
+            if (returnAPI) {
+                syncLogDao.insert(
+                    SyncLog(
+                        date = date,
+                        syncType = SyncType.DAILY_SUMMARY,
+                        dateTime = LocalDateTime.now(),
+                        totalRecords = 1
+                    )
+                )
+            } else {
+                Log.e(TAG, "Error sending data to API")
+            }
+        } else {
+            Log.d(TAG, "Data for $date has already been synced.")
+        }
+        val afterProcessing = syncLogDao.getSyncLog(date, SyncType.DAILY_SUMMARY)
+        Log.e(
+            TAG,
+            "After processing, sync log for $date and ${SyncType.DAILY_SUMMARY}: $afterProcessing"
+        )
     }
 
     suspend fun readData(dateTime: LocalDateTime): DailySummary {
@@ -34,6 +64,7 @@ class DailySummaryService(
         val sleepScore = readSleepScore(dateTime)
 
         return DailySummary(
+            userId = 0L,
             date = dateTime.toLocalDate(),
             totalSteps = totalSteps,
             activeTimeInMinutes = activeTimeInMinutes,
@@ -138,12 +169,12 @@ class DailySummaryService(
             .build()
 
         val dataList = healthDataStore.readData(readDataRequest).dataList
-        val sleepScore = dataList.first().getValue(DataType.SleepType.SLEEP_SCORE) ?: 0
+        val sleepScore = dataList.firstOrNull()?.getValue(DataType.SleepType.SLEEP_SCORE) ?: 0
         Log.d(TAG, "Daily sleep score: $sleepScore")
         return sleepScore.toLong()
     }
 
-    suspend fun sendDataToAPI(data: DailySummary) {
-        dailySummaryApiService.sendToApi(data)
+    suspend fun sendDataToAPI(data: DailySummary): Boolean {
+        return dailySummaryApiService.sendToApi(data)
     }
 }

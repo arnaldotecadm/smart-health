@@ -65,7 +65,7 @@ object ExerciseSessionMapper {
                 )
             },
             startTime = this.startTime,
-            swimmingLog = this.swimmingLog,
+            swimmingLog = null, //this.swimmingLog,
             vo2Max = this.vo2Max
         )
     }

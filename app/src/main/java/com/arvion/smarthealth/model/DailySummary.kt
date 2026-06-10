@@ -3,6 +3,7 @@ package com.arvion.smarthealth.model
 import java.time.LocalDate
 
 data class DailySummary(
+    val userId: Long,
     val date: LocalDate,
     val totalSteps: Long,
     val activeTimeInMinutes: Long,

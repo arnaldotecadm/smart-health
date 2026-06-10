@@ -1,8 +1,9 @@
 package com.arvion.smarthealth.service.api
 
+import android.content.Context
 import com.arvion.smarthealth.model.HealthDataPoint as HealthDataPointModel
 
-class HeartRateSeriesApiService : ApiBackend() {
+class HeartRateSeriesApiService(context: Context) : ApiBackend(context) {
 
     override suspend fun sendListToApi(healthDataPoints: List<HealthDataPointModel>): List<Boolean> {
         val response = apiService.postHeartRateSeries(healthDataPoints)

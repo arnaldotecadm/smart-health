@@ -7,7 +7,8 @@ import java.time.LocalDateTime
 
 @Entity(tableName = "sync_log")
 data class SyncLog(
-    @PrimaryKey
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0,
     val date: LocalDate,
     val syncType: SyncType,
     val dateTime: LocalDateTime,

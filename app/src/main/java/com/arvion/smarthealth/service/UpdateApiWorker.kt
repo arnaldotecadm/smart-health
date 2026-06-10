@@ -21,23 +21,26 @@ class UpdateApiWorker(
     val exerciseService = ExerciseService(
         context = appContext,
         healthDataStore = HealthDataService.getStore(applicationContext),
-        exerciseApiService = ExerciseApiService()
+        exerciseApiService = ExerciseApiService(appContext)
     )
 
     val sleepService = SleepService(
+        context = appContext,
         healthDataStore = HealthDataService.getStore(applicationContext),
-        sleepApiService = SleepApiService()
+        sleepApiService = SleepApiService(appContext)
     )
 
     val dailySummaryService = DailySummaryService(
+        context = appContext,
         healthDataStore = HealthDataService.getStore(applicationContext),
         exerciserService = exerciseService,
-        dailySummaryApiService = DailySummaryApiService(ApiBackend())
+        dailySummaryApiService = DailySummaryApiService(ApiBackend(appContext))
     )
 
     val heartRateService = HeartRateService(
+        context = appContext,
         healthDataStore = HealthDataService.getStore(applicationContext),
-        heartRateSeriesApiService = HeartRateSeriesApiService()
+        heartRateSeriesApiService = HeartRateSeriesApiService(appContext)
     )
 
     override suspend fun doWork(): Result {

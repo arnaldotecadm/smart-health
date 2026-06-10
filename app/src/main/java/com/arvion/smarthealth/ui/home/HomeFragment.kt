@@ -21,6 +21,7 @@ import com.arvion.smarthealth.data.AuthState
 import com.arvion.smarthealth.data.AuthViewModel
 import com.arvion.smarthealth.data.UserRepository
 import com.arvion.smarthealth.database.AppDatabase
+import com.arvion.smarthealth.database.SyncLogDao
 import com.arvion.smarthealth.service.DailySummaryService
 import com.arvion.smarthealth.service.ExerciseService
 import com.arvion.smarthealth.service.HeartRateService
@@ -51,6 +52,8 @@ class HomeFragment : Fragment() {
     private lateinit var userRepository: UserRepository
     private lateinit var authViewModel: AuthViewModel
 
+    private lateinit var syncLogDao: SyncLogDao
+
     object UserKeys {
         val USER_ID = stringPreferencesKey("user_id")
     }
@@ -63,6 +66,7 @@ class HomeFragment : Fragment() {
         signInClient = Identity.getSignInClient(this.requireActivity())
         userRepository = UserRepository(this.requireContext())
         authViewModel = AuthViewModel(userRepository)
+        this.syncLogDao = AppDatabase.getDatabase(this.requireContext()).syncLogDao()
         return inflater.inflate(R.layout.fragment_home, container, false)
     }
 
@@ -73,26 +77,30 @@ class HomeFragment : Fragment() {
         observeUserSession()
 
         val dataStore = HealthDataService.getStore(requireActivity().applicationContext)
-        val dateTimeToRetrieve = LocalDateTime.of(2026, 2, 8, 0, 0)
+        //val dateTimeToRetrieve = LocalDateTime.of(2026, 2, 8, 0, 0)
+        val dateTimeToRetrieve = LocalDateTime.now()
         AppDatabase.getDatabase(requireContext()).openHelper.writableDatabase
 
         exerciseService = ExerciseService(
             context = requireContext(),
             healthDataStore = dataStore,
-            exerciseApiService = ExerciseApiService()
+            exerciseApiService = ExerciseApiService(requireContext())
         )
         sleepService = SleepService(
+            context = requireContext(),
             healthDataStore = dataStore,
-            sleepApiService = SleepApiService()
+            sleepApiService = SleepApiService(requireContext())
         )
         dailySummaryService = DailySummaryService(
+            context = requireContext(),
             healthDataStore = dataStore,
             exerciserService = exerciseService,
-            dailySummaryApiService = DailySummaryApiService(ApiBackend())
+            dailySummaryApiService = DailySummaryApiService(ApiBackend(requireContext()))
         )
         heartRateService = HeartRateService(
+            context = requireContext(),
             healthDataStore = dataStore,
-            heartRateSeriesApiService = HeartRateSeriesApiService()
+            heartRateSeriesApiService = HeartRateSeriesApiService(requireContext())
         )
 
         view.findViewById<Button>(R.id.readExerciseButton).setOnClickListener {
@@ -145,7 +153,7 @@ class HomeFragment : Fragment() {
         */
         view.findViewById<Button>(R.id.updateAll).setOnClickListener {
             lifecycleScope.launch {
-                //updateAll()
+                updateAll()
             }
         }
     }
@@ -216,11 +224,11 @@ class HomeFragment : Fragment() {
 
                 if (idToken != null) {
                     // User successfully signed in
-                    // Send idToken to your backend or use it locally
                     val jwt = JWT(idToken)
                     val googleUserId = jwt.getClaim("sub").asString()
                     lifecycleScope.launch {
                         userRepository.saveUserId(googleUserId ?: credential.id)
+                        userRepository.saveJwtToken(idToken) // Save the JWT token
                     }
                 }
             } catch (e: Exception) {
@@ -259,15 +267,15 @@ class HomeFragment : Fragment() {
             }
     }
 
-
-
     private fun triggerOneTimeWorker() {
         val updateAPIWorkRequest = OneTimeWorkRequestBuilder<UpdateApiWorker>().build()
         WorkManager.getInstance(requireActivity().applicationContext).enqueue(updateAPIWorkRequest)
     }
 
     suspend fun updateAll() {
-        var dateTimeToRetrieve = LocalDateTime.now()
+        //var dateTimeToRetrieve = this.syncLogDao.getMinDate()?.atStartOfDay() ?: LocalDateTime.now()
+        //var dateTimeToRetrieve = LocalDate.parse("2025-09-25").atStartOfDay()
+        var dateTimeToRetrieve = LocalDate.now().atStartOfDay()
         do {
             Toast.makeText(
                 requireContext(),

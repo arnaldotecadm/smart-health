@@ -1,5 +1,8 @@
 package com.arvion.smarthealth.model
 
 enum class SyncType {
-    EXERCISE
+    EXERCISE,
+    SLEEP,
+    DAILY_SUMMARY,
+    HEART_RATE
 }
