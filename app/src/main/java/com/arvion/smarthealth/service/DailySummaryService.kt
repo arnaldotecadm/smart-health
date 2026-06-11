@@ -42,7 +42,7 @@ class DailySummaryService(
                     )
                 )
             } else {
-                Log.e(TAG, "Error sending data to API")
+                Log.e(TAG, "Error sending data to API.")
             }
         } else {
             Log.d(TAG, "Data for $date has already been synced.")
