@@ -23,12 +23,29 @@ class SleepService(
 ) {
     private val syncLogDao = AppDatabase.getDatabase(context).syncLogDao()
 
-    suspend fun processSleepSession(dateTime: LocalDateTime) {
+    /**
+     * Fetches and syncs sleep data for the given date.
+     *
+     * @param skipDbCheck When true, skips the per-date DB deduplication check (caller
+     *                    guarantees this date has not been synced yet, e.g. via bulk pre-load).
+     * @return The fetched [HealthDataPoint] list, or null if the date was already synced
+     *         and no fetch was performed.
+     */
+    suspend fun processSleepSession(
+        dateTime: LocalDateTime,
+        skipDbCheck: Boolean = false
+    ): List<HealthDataPoint>? {
         val date = dateTime.toLocalDate()
-        if (syncLogDao.getSyncLog(date, SyncType.SLEEP) == null) {
+        val alreadySynced = !skipDbCheck && syncLogDao.getSyncLog(date, SyncType.SLEEP) != null
+        if (!alreadySynced) {
             val data = readData(dateTime)
+            if (data.isEmpty()) {
+                Log.d(TAG, "No sleep data for $date, skipping.")
+                return null
+            }
             val returnAPI = sendDataToAPI(data)
-            if (returnAPI.isNotEmpty() && returnAPI.all { it }) {
+            val failedCount = returnAPI.count { !it }
+            if (failedCount == 0) {
                 syncLogDao.insert(
                     SyncLog(
                         date = date,
@@ -38,10 +55,12 @@ class SleepService(
                     )
                 )
             } else {
-                Log.e(TAG, "Error sending data to API")
+                Log.e(TAG, "Sleep sync failed for $date: $failedCount/${returnAPI.size} records not accepted by API")
             }
+            return data
         } else {
             Log.d(TAG, "Data for $date has already been synced.")
+            return null
         }
     }
 

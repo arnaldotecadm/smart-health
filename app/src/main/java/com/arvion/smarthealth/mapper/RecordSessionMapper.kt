@@ -12,6 +12,7 @@ object RecordSessionMapper {
                 calories = this.calories,
                 duration = this.duration,
                 exerciseType = this.exerciseType,
+                startTime = this.startTime,
                 dataSource = dataSource
             )
         }

@@ -9,7 +9,6 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.Toast
-import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -22,6 +21,7 @@ import com.arvion.smarthealth.data.AuthViewModel
 import com.arvion.smarthealth.data.UserRepository
 import com.arvion.smarthealth.database.AppDatabase
 import com.arvion.smarthealth.database.SyncLogDao
+import com.arvion.smarthealth.model.SyncType
 import com.arvion.smarthealth.service.DailySummaryService
 import com.arvion.smarthealth.service.ExerciseService
 import com.arvion.smarthealth.service.HeartRateService
@@ -37,6 +37,8 @@ import com.google.android.gms.auth.api.identity.BeginSignInRequest
 import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.auth.api.identity.SignInClient
 import com.samsung.android.sdk.health.data.HealthDataService
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -53,10 +55,6 @@ class HomeFragment : Fragment() {
     private lateinit var authViewModel: AuthViewModel
 
     private lateinit var syncLogDao: SyncLogDao
-
-    object UserKeys {
-        val USER_ID = stringPreferencesKey("user_id")
-    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -94,7 +92,6 @@ class HomeFragment : Fragment() {
         dailySummaryService = DailySummaryService(
             context = requireContext(),
             healthDataStore = dataStore,
-            exerciserService = exerciseService,
             dailySummaryApiService = DailySummaryApiService(ApiBackend(requireContext()))
         )
         heartRateService = HeartRateService(
@@ -192,13 +189,21 @@ class HomeFragment : Fragment() {
                 authViewModel.authState.collect { state ->
                     when (state) {
                         is AuthState.Loading -> {
-                            Toast.makeText(requireContext(), "Loading...", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(requireContext(), "Loading...", Toast.LENGTH_SHORT)
+                                .show()
                         }
+
                         is AuthState.LoggedOut -> {
-                            Toast.makeText(requireContext(), "Logged out", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(requireContext(), "Logged out", Toast.LENGTH_SHORT)
+                                .show()
                         }
+
                         is AuthState.LoggedIn -> {
-                            Toast.makeText(requireContext(), "Logged in as ${state.userId}", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(
+                                requireContext(),
+                                "Logged in as ${state.userId}",
+                                Toast.LENGTH_SHORT
+                            ).show()
                         }
                     }
                 }
@@ -273,21 +278,63 @@ class HomeFragment : Fragment() {
     }
 
     suspend fun updateAll() {
-        //var dateTimeToRetrieve = this.syncLogDao.getMinDate()?.atStartOfDay() ?: LocalDateTime.now()
-        //var dateTimeToRetrieve = LocalDate.parse("2025-09-25").atStartOfDay()
-        var dateTimeToRetrieve = LocalDate.now().atStartOfDay()
-        do {
+        // Prime the auth token once — eliminates runBlocking on every HTTP call
+        ApiBackend.authInterceptor.cachedToken = userRepository.getJwtToken()
+
+        val startDate = LocalDate.parse("2024-01-01")
+        val endDate = LocalDate.now()
+
+        // Pre-load the entire sync state for the date range in a single DB query,
+        // replacing ~2,000 individual per-service getSyncLog() calls.
+        val syncedSet: Set<Pair<LocalDate, SyncType>> = syncLogDao
+            .getSyncedDatesInRange(startDate, endDate)
+            .map { it.date to it.syncType }
+            .toHashSet()
+
+        val dates = generateSequence(endDate) { it.minusDays(1) }
+            .takeWhile { !it.isBefore(startDate) }
+            .toList()
+
+        for (date in dates) {
+            val dateTime = date.atStartOfDay()
+
             Toast.makeText(
                 requireContext(),
-                "Processing data from ${dateTimeToRetrieve.toLocalDate()}",
+                "Syncing $date",
                 Toast.LENGTH_SHORT
             ).show()
-            exerciseService.processExercises(dateTimeToRetrieve)
-            sleepService.processSleepSession(dateTimeToRetrieve)
-            dailySummaryService.processDailySummary(dateTimeToRetrieve)
-            heartRateService.processHeartRates(dateTimeToRetrieve)
-            dateTimeToRetrieve = dateTimeToRetrieve.minusDays(1)
-        } while (dateTimeToRetrieve.isAfter(LocalDate.parse("2024-01-01").atStartOfDay()))
+
+            // Run Exercise, Sleep, and HeartRate concurrently for this date.
+            // DailySummary follows after Exercise finishes so it can reuse the
+            // already-fetched exercise data (eliminates a duplicate SDK read).
+            coroutineScope {
+                val exerciseDeferred = async {
+                    if (date to SyncType.EXERCISE !in syncedSet)
+                        exerciseService.processExercises(dateTime, skipDbCheck = true)
+                    else null
+                }
+                val sleepDeferred = async {
+                    if (date to SyncType.SLEEP !in syncedSet)
+                        sleepService.processSleepSession(dateTime, skipDbCheck = true)
+                }
+                val hrDeferred = async {
+                    if (date to SyncType.HEART_RATE !in syncedSet)
+                        heartRateService.processHeartRates(dateTime, skipDbCheck = true)
+                }
+
+                val exerciseData = exerciseDeferred.await()
+                sleepDeferred.await()
+                hrDeferred.await()
+
+                if (date to SyncType.DAILY_SUMMARY !in syncedSet) {
+                    dailySummaryService.processDailySummary(
+                        dateTime,
+                        prefetchedExercise = exerciseData,
+                        skipDbCheck = true
+                    )
+                }
+            }
+        }
 
         Toast.makeText(
             requireContext(),

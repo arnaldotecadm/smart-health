@@ -8,6 +8,8 @@ import com.arvion.smarthealth.model.SyncLog
 import com.arvion.smarthealth.model.SyncType
 import java.time.LocalDate
 
+data class SyncLogKey(val date: LocalDate, val syncType: SyncType)
+
 @Dao
 interface SyncLogDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -21,4 +23,7 @@ interface SyncLogDao {
 
     @Query("DELETE FROM sync_log WHERE date = :date")
     suspend fun deleteByDate(date: LocalDate)
+
+    @Query("SELECT date, syncType FROM sync_log WHERE date BETWEEN :start AND :end")
+    suspend fun getSyncedDatesInRange(start: LocalDate, end: LocalDate): List<SyncLogKey>
 }

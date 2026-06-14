@@ -14,6 +14,9 @@ import com.samsung.android.sdk.health.data.request.DataType
 import com.samsung.android.sdk.health.data.request.DataTypes
 import com.samsung.android.sdk.health.data.request.LocalTimeFilter
 import com.samsung.android.sdk.health.data.request.Ordering
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import java.time.LocalDateTime
 import java.time.LocalTime
 
@@ -24,14 +27,28 @@ class HeartRateService(
 ) {
 
     private val syncLogDao = AppDatabase.getDatabase(context).syncLogDao()
-    suspend fun processHeartRates(dateTime: LocalDateTime) {
+
+    suspend fun processHeartRates(dateTime: LocalDateTime, skipDbCheck: Boolean = false) {
         val date = dateTime.toLocalDate()
-        if (syncLogDao.getSyncLog(date, SyncType.HEART_RATE) == null) {
+        val alreadySynced = !skipDbCheck && syncLogDao.getSyncLog(date, SyncType.HEART_RATE) != null
+        if (!alreadySynced) {
             val data = readData(dateTime)
-            val returnAPI = data.chunked(1_000).map { batch ->
-                sendToApi(batch)
+            if (data.isEmpty()) {
+                Log.d(TAG, "No heart rate data for $date, skipping.")
+                return
             }
-            if (returnAPI.isNotEmpty() && returnAPI.all { it }) {
+            val batches = data.chunked(1_000)
+            val returnAPI = coroutineScope {
+                batches.mapIndexed { index, batch ->
+                    async {
+                        runCatching { sendToApi(batch) }
+                            .onFailure { Log.e(TAG, "Heart rate batch ${index + 1}/${batches.size} failed for $date: ${it.message}") }
+                            .getOrDefault(false)
+                    }
+                }.awaitAll()
+            }
+            val failedCount = returnAPI.count { !it }
+            if (failedCount == 0) {
                 syncLogDao.insert(
                     SyncLog(
                         date = date,
@@ -41,7 +58,7 @@ class HeartRateService(
                     )
                 )
             } else {
-                Log.e(TAG, "Error sending data to API")
+                Log.e(TAG, "Heart rate sync failed for $date: $failedCount/${returnAPI.size} batches not accepted by API")
             }
         } else {
             Log.d(TAG, "Data for $date has already been synced.")

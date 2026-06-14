@@ -1,11 +1,15 @@
 package com.arvion.smarthealth.model
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import java.time.LocalDate
 import java.time.LocalDateTime
 
-@Entity(tableName = "sync_log")
+@Entity(
+    tableName = "sync_log",
+    indices = [Index(value = ["date", "syncType"])]
+)
 data class SyncLog(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,

@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     id("kotlin-parcelize")
     id("kotlin-kapt")
+    id("org.sonarqube") version "4.0.0.2929"
 }
 
 android {
@@ -88,4 +89,13 @@ dependencies {
     implementation("com.google.android.gms:play-services-auth:21.1.0")
     implementation("androidx.datastore:datastore-preferences:1.1.1")
     implementation("com.auth0.android:jwtdecode:2.0.1")
+}
+
+sonar {
+    properties {
+        property("sonar.host.url", "http://localhost:11000")
+        property("sonar.projectKey", "stay-fit-app")
+        property("sonar.projectName", "Stay Fit APP")
+        property("sonar.token", "sqa_433e3806b5f757e01555f3a3e8214a950aa49095")
+    }
 }

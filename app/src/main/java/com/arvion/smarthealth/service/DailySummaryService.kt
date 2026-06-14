@@ -5,6 +5,7 @@ import android.util.Log
 import com.arvion.smarthealth.database.AppDatabase
 import com.arvion.smarthealth.mapper.RecordSessionMapper.toDailySummaryActivityModel
 import com.arvion.smarthealth.model.DailySummary
+import com.arvion.smarthealth.model.HealthDataPoint
 import com.arvion.smarthealth.model.SyncLog
 import com.arvion.smarthealth.model.SyncType
 import com.arvion.smarthealth.service.api.DailySummaryApiService
@@ -14,23 +15,38 @@ import com.samsung.android.sdk.health.data.request.DataType
 import com.samsung.android.sdk.health.data.request.DataTypes
 import com.samsung.android.sdk.health.data.request.LocalTimeFilter
 import com.samsung.android.sdk.health.data.request.Ordering
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import java.time.LocalDateTime
 import java.time.LocalTime
+import java.time.ZoneOffset
 
 class DailySummaryService(
     context: Context,
     val healthDataStore: HealthDataStore,
-    val exerciserService: ExerciseService,
     val dailySummaryApiService: DailySummaryApiService
 ) {
 
     private val syncLogDao = AppDatabase.getDatabase(context).syncLogDao()
 
-    suspend fun processDailySummary(dateTime: LocalDateTime) {
+    /**
+     * Builds and syncs the daily summary for the given date.
+     *
+     * @param prefetchedExercise Exercise data already fetched by [ExerciseService] for this date.
+     *                           When provided, avoids a duplicate Samsung Health SDK read.
+     * @param skipDbCheck When true, skips the per-date DB deduplication check (caller
+     *                    guarantees this date has not been synced yet, e.g. via bulk pre-load).
+     */
+    suspend fun processDailySummary(
+        dateTime: LocalDateTime,
+        prefetchedExercise: List<HealthDataPoint>? = null,
+        skipDbCheck: Boolean = false
+    ) {
         val date = dateTime.toLocalDate()
-        val syncLogByDateAndType = syncLogDao.getSyncLog(date, SyncType.DAILY_SUMMARY)
-        if (syncLogByDateAndType == null) {
-            val data = readData(dateTime)
+        val alreadySynced =
+            !skipDbCheck && syncLogDao.getSyncLog(date, SyncType.DAILY_SUMMARY) != null
+        if (!alreadySynced) {
+            val data = readData(dateTime, prefetchedExercise)
             val returnAPI = sendDataToAPI(data)
             if (returnAPI) {
                 syncLogDao.insert(
@@ -42,43 +58,43 @@ class DailySummaryService(
                     )
                 )
             } else {
-                Log.e(TAG, "Error sending data to API.")
+                Log.e(
+                    TAG,
+                    "Daily summary sync failed for $date: API returned unsuccessful response"
+                )
             }
         } else {
             Log.d(TAG, "Data for $date has already been synced.")
         }
-        val afterProcessing = syncLogDao.getSyncLog(date, SyncType.DAILY_SUMMARY)
-        Log.e(
-            TAG,
-            "After processing, sync log for $date and ${SyncType.DAILY_SUMMARY}: $afterProcessing"
-        )
     }
 
-    suspend fun readData(dateTime: LocalDateTime): DailySummary {
-        val totalSteps = readTotalSteps(dateTime)
-        val activeTimeInMinutes = readTotalActiveTimeInMinutes(dateTime)
-        val exerciseCalories = readTotalActiveCaloriesBurned(dateTime)
-        val totalBurnedCalories = readTotalCaloriesBurned(dateTime)
-        val distanceWhileActive = readTotalDistance(dateTime)
-        val exerciseList = exerciserService.readData(dateTime = dateTime)
-        val sleepScore = readSleepScore(dateTime)
+    /**
+     * Reads all data required to build a [DailySummary].
+     *
+     * All 7 Samsung Health SDK calls run concurrently via [async]. When [prefetchedExercise]
+     * is supplied (already fetched by [ExerciseService] earlier in the same sync cycle), the
+     * duplicate exercise SDK read is skipped entirely.
+     */
+    suspend fun readData(
+        dateTime: LocalDateTime,
+        prefetchedExercise: List<HealthDataPoint>? = null
+    ): DailySummary = coroutineScope {
+        val stepsDeferred = async { readTotalSteps(dateTime) }
+        val activeTimeDeferred = async { readTotalActiveTimeInMinutes(dateTime) }
+        val exerciseCalDeferred = async { readTotalActiveCaloriesBurned(dateTime) }
+        val totalCalDeferred = async { readTotalCaloriesBurned(dateTime) }
+        val distanceDeferred = async { readTotalDistance(dateTime) }
+        val sleepScoreDeferred = async { readSleepScore(dateTime) }
 
-        return DailySummary(
+        DailySummary(
             userId = 0L,
-            date = dateTime.toLocalDate(),
-            totalSteps = totalSteps,
-            activeTimeInMinutes = activeTimeInMinutes,
-            exerciseCalories = exerciseCalories,
-            totalBurnedCalories = totalBurnedCalories,
-            distanceWhileActive = distanceWhileActive,
-            sleepScore = sleepScore,
-            exerciseList = exerciseList.map { Pair(it.dataSource, it.sessions) }.flatMap { pair ->
-                pair.second.map {
-                    it.toDailySummaryActivityModel(
-                        dataSource = "${pair.first?.appId}:${pair.first?.deviceId}"
-                    )
-                }
-            }
+            date = dateTime.toInstant(ZoneOffset.UTC),
+            totalSteps = stepsDeferred.await(),
+            activeTimeInMinutes = activeTimeDeferred.await(),
+            exerciseCalories = exerciseCalDeferred.await(),
+            totalBurnedCalories = totalCalDeferred.await(),
+            distanceWhileActive = distanceDeferred.await(),
+            sleepScore = sleepScoreDeferred.await()
         )
     }
 
