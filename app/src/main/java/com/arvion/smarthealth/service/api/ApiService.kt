@@ -8,13 +8,13 @@ import retrofit2.http.POST
 
 interface ApiService {
     @POST("exercises")
-    suspend fun postExercise(@Body postData: HealthDataPoint): Response<Unit>
+    suspend fun postExercises(@Body postData: List<HealthDataPoint>): Response<Unit>
 
     @POST("sleeps")
-    suspend fun postSleep(@Body postData: HealthDataPoint): Response<Unit>
+    suspend fun postSleeps(@Body postData: List<HealthDataPoint>): Response<Unit>
 
     @POST("daily-summary")
-    suspend fun postDailySummary(@Body data: DailySummary): Response<Unit>
+    suspend fun postDailySummaries(@Body data: List<DailySummary>): Response<Unit>
 
     @POST("heart-rate")
     suspend fun postHeartRateSeries(@Body data: List<HealthDataPoint>): Response<Unit>

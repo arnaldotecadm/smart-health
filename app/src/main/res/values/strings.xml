@@ -2,6 +2,8 @@
     <string name="default_web_client_id">774981247720-isga65mvv2j93qi7lq1irem3h9pkso0i.apps.googleusercontent.com</string>
 
     <string name="app_name">SmartHealth</string>
+    <string name="sync_notification_title">SmartHealth Sync</string>
+    <string name="sync_notification_stop">Stop</string>
     <string name="read_the_exercises">Read the exercises</string>
     <string name="read_the_sleeps">Read the sleeps</string>
     <string name="read_daily_summary">Read Daily Summary</string>
@@ -46,4 +48,33 @@
     <string name="light">Light</string>
     <string name="dark">Dark</string>
     <string name="system_default">System Default</string>
+    <string name="reset_sync_log">Reset Sync Log</string>
+    <string name="title_sync">Sync</string>
+    <string name="sync_settings">Sync Settings</string>
+    <string name="oldest_sync_date_hint">Oldest Sync Date</string>
+    <string name="sync_direction">Sync Direction</string>
+    <string name="sync_backward">Backward (Newest → Oldest)</string>
+    <string name="sync_forward">Forward (Oldest → Newest)</string>
+    <string name="start_full_sync">Start Full Sync</string>
+    <string name="sync_log_header">Synced Days</string>
+    <string name="syncing_date">Syncing: %s</string>
+    <string name="sync_idle">Ready to sync</string>
+    <string name="no_sync_logs">No days synced yet</string>
+    <string name="title_settings">Settings</string>
+    <string name="pref_category_sync">Sync Configuration</string>
+    <string name="pref_oldest_date_title">Oldest Sync Date</string>
+    <string name="pref_oldest_date_summary">Tap to choose how far back to sync</string>
+    <string name="pref_direction_title">Sync Direction</string>
+    <string name="pref_category_state">Sync State</string>
+    <string name="pref_cursor_title">Last Sync Position</string>
+    <string name="pref_cursor_not_set">No sync in progress</string>
+    <string name="pref_clear_log_title">Clear Sync Log</string>
+    <string name="pref_clear_log_summary">Reset history — all data will be re-synced</string>
+    <string name="pref_clear_log_confirm_title">Clear Sync Log?</string>
+    <string name="pref_clear_log_confirm_message">This will delete all sync records. All data will be re-synced on next run.</string>
+    <string name="confirm">Confirm</string>
+    <string name="cancel">Cancel</string>
+    <string name="sync_config_summary">From %1$s · %2$s</string>
+    <string name="sync_resume_from">Resume from %s</string>
+    <string name="open_settings">Settings</string>
 </resources>

@@ -10,19 +10,17 @@ class ExerciseApiService(context: Context) : ApiBackend(context) {
 
     override suspend fun sendListToApi(healthDataPoints: List<HealthDataPointModel>): List<Boolean> {
         if (healthDataPoints.isEmpty()) return emptyList()
-        return coroutineScope {
-            healthDataPoints.map { async { sendToApi(it) } }.awaitAll()
+        val response = apiService.postExercises(healthDataPoints)
+        if (response.isSuccessful) {
+            return List(healthDataPoints.size) { true }
+        } else {
+            throw Exception("Failed to send Exercises to API: ${response.code()} - ${response.message()}")
         }
     }
 
     override suspend fun sendToApi(
         healthDataPoint: HealthDataPointModel
     ): Boolean {
-        val response = apiService.postExercise(healthDataPoint)
-        if (response.isSuccessful) {
-            return true
-        } else {
-            throw Exception("Failed to send Exercises to API: ${response.code()} - ${response.message()}")
-        }
+        return sendListToApi(listOf(healthDataPoint)).first()
     }
 }

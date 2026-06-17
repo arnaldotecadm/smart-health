@@ -79,7 +79,7 @@ class ExerciseService(
         return dataList.toModel(dataType = DataTypes.EXERCISE)
     }
 
-    private suspend fun sendDataToAPI(data: List<HealthDataPoint>): List<Boolean> {
+    suspend fun sendDataToAPI(data: List<HealthDataPoint>): List<Boolean> {
         return exerciseApiService.sendListToApi(data)
     }
 }

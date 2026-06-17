@@ -4,15 +4,21 @@ import com.arvion.smarthealth.model.DailySummary
 
 class DailySummaryApiService(val apiBackend: ApiBackend) {
 
+    suspend fun sendListToApi(
+        dailySummaries: List<DailySummary>
+    ): Boolean {
+        if (dailySummaries.isEmpty()) return true
+        val response = apiBackend.apiService.postDailySummaries(dailySummaries)
+        if (response.isSuccessful) {
+            return true
+        } else {
+            throw Exception("Failed to send daily summaries to API: ${response.code()} - ${response.message()}")
+        }
+    }
+
     suspend fun sendToApi(
         dailySummary: DailySummary
     ): Boolean {
-        val response = apiBackend.apiService.postDailySummary(dailySummary)
-        if (response.isSuccessful) {
-            //return response.body()!!
-            return true
-        } else {
-            throw Exception("Failed to send daily summary to API: ${response.code()} - ${response.message()}")
-        }
+        return sendListToApi(listOf(dailySummary))
     }
 }

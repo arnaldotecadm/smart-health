@@ -9,6 +9,10 @@
         android:icon="@drawable/ic_dashboard"
         android:title="@string/title_dashboard" />
     <item
+        android:id="@+id/navigation_sync"
+        android:icon="@drawable/ic_sync"
+        android:title="@string/title_sync" />
+    <item
         android:id="@+id/navigation_notifications"
         android:icon="@drawable/ic_notifications"
         android:title="@string/title_notifications" />

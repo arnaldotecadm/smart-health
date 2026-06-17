@@ -5,8 +5,7 @@
     android:layout_height="wrap_content"
     android:layout_margin="8dp"
     app:cardCornerRadius="16dp"
-    app:cardElevation="2dp"
-    app:strokeWidth="1dp">
+    app:cardElevation="2dp">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -25,9 +24,9 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/pending_update"
+                android:text="@string/up_to_date"
                 android:textAllCaps="true"
-                android:textColor="@color/warning"
+                android:textColor="@color/success"
                 android:textSize="12sp"
                 android:textStyle="bold" />
 
@@ -41,18 +40,19 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/new_activity_recorded"
+                android:text="@string/last_synced"
                 android:textColor="?colorOnSurfaceVariant"
                 android:textSize="12sp" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/readExerciseButton"
+                style="?attr/materialButtonOutlinedStyle"
                 android:layout_width="wrap_content"
                 android:layout_height="36dp"
                 android:layout_marginTop="8dp"
-                android:text="@string/sync_now"
+                android:text="@string/sync"
                 app:cornerRadius="8dp"
-                app:icon="@drawable/ic_upload" />
+                app:icon="@drawable/ic_refresh" />
         </LinearLayout>
 
         <!-- Right Metric -->
@@ -62,7 +62,7 @@
             android:background="@drawable/bg_metric_card">
 
             <LinearLayout
-                android:id="@+id/metricContent"
+                android:id="@+id/exerciseContent"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:gravity="center"
@@ -87,7 +87,7 @@
             </LinearLayout>
 
             <ProgressBar
-                android:id="@+id/metricProgress"
+                android:id="@+id/exerciseProgress"
                 style="?android:attr/progressBarStyle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"

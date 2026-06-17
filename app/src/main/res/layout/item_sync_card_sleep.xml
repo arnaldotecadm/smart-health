@@ -57,27 +57,41 @@
         </LinearLayout>
 
         <!-- Right Metric -->
-        <LinearLayout
+        <FrameLayout
             android:layout_width="96dp"
             android:layout_height="match_parent"
-            android:background="@drawable/bg_metric_card"
-            android:gravity="center"
-            android:orientation="vertical">
+            android:background="@drawable/bg_metric_card">
 
-            <ImageView
-                android:layout_width="32dp"
-                android:layout_height="32dp"
-                android:contentDescription="@null"
-                android:src="@drawable/ic_bedtime"
-                app:tint="@color/primary" />
+            <LinearLayout
+                android:id="@+id/sleepContent"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:orientation="vertical">
 
-            <TextView
+                <ImageView
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_bedtime"
+                    app:tint="@color/primary" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/sleep_duration"
+                    android:textColor="@color/primary"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <ProgressBar
+                android:id="@+id/sleepProgress"
+                style="?android:attr/progressBarStyle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/sleep_duration"
-                android:textColor="@color/primary"
-                android:textStyle="bold" />
-        </LinearLayout>
+                android:layout_gravity="center"
+                android:visibility="gone" />
+        </FrameLayout>
 
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

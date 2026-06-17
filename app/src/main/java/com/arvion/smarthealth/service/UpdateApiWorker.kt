@@ -51,8 +51,8 @@ class UpdateApiWorker(
         return try {
             Log.i(Constants.TAG, "Processing health data in background")
 
-            // Prime auth token once for all HTTP calls in this run
-            ApiBackend.authInterceptor.cachedToken = UserRepository(applicationContext).getJwtToken()
+            // Prime auth token — silently refreshes if expired
+            ApiBackend.authInterceptor.cachedToken = UserRepository(applicationContext).getValidToken()
 
             val dateTime = LocalDateTime.now()
 

@@ -83,6 +83,23 @@ class HeartRateService(
     }
 
     suspend fun sendToApi(data: List<HealthDataPoint>): Boolean {
-        return heartRateSeriesApiService.sendListToApi(data).all { it }
+        if (data.isEmpty()) return true
+        
+        // Heart rate data is extremely verbose. We chunk it into smaller batches
+        // and send them sequentially to avoid overwhelming the network/server
+        // or hitting memory limits during serialization.
+        val chunks = data.chunked(200) 
+        var allSuccess = true
+        
+        for (chunk in chunks) {
+            try {
+                val result = heartRateSeriesApiService.sendListToApi(chunk).all { it }
+                if (!result) allSuccess = false
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to send heart rate chunk: ${e.message}")
+                allSuccess = false
+            }
+        }
+        return allSuccess
     }
 }

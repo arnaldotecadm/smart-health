@@ -57,6 +57,7 @@ class DailySummaryService(
                         totalRecords = 1
                     )
                 )
+                Log.d(TAG, "Daily summary sync successful for $date")
             } else {
                 Log.e(
                     TAG,
@@ -109,7 +110,6 @@ class DailySummaryService(
 
         val dataList = healthDataStore.aggregateData(readRequest).dataList
         val total = dataList.sumOf { it.value?.toLong() ?: 0L }
-        Log.d(TAG, "Daily total Distance: $total")
         return total
     }
 
@@ -124,7 +124,6 @@ class DailySummaryService(
 
         val dataList = healthDataStore.aggregateData(readRequest).dataList
         val total = dataList.sumOf { it.value?.toMinutes() ?: 0L }
-        Log.d(TAG, "Daily total Active Time: $total")
         return total
     }
 
@@ -139,7 +138,6 @@ class DailySummaryService(
 
         val dataList = healthDataStore.aggregateData(readRequest).dataList
         val total = dataList.sumOf { it.value?.toLong() ?: 0L }
-        Log.d(TAG, "Daily total Calories Burned: $total")
         return total
     }
 
@@ -155,7 +153,6 @@ class DailySummaryService(
 
         val dataList = healthDataStore.aggregateData(readRequest).dataList
         val total = dataList.sumOf { it.value?.toLong() ?: 0L }
-        Log.d(TAG, "Daily total Active Calories Burned: $total")
         return total
     }
 
@@ -170,7 +167,6 @@ class DailySummaryService(
 
         val dataList = healthDataStore.aggregateData(readRequest).dataList
         val dailyStepCount = dataList.sumOf { it.value as Long }
-        Log.d(TAG, "Daily total steps: $dailyStepCount")
         return dailyStepCount
     }
 
@@ -186,11 +182,14 @@ class DailySummaryService(
 
         val dataList = healthDataStore.readData(readDataRequest).dataList
         val sleepScore = dataList.firstOrNull()?.getValue(DataType.SleepType.SLEEP_SCORE) ?: 0
-        Log.d(TAG, "Daily sleep score: $sleepScore")
         return sleepScore.toLong()
     }
 
     suspend fun sendDataToAPI(data: DailySummary): Boolean {
         return dailySummaryApiService.sendToApi(data)
+    }
+
+    suspend fun sendBatchToAPI(data: List<DailySummary>): Boolean {
+        return dailySummaryApiService.sendListToApi(data)
     }
 }

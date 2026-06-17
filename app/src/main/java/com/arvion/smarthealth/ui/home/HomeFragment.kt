@@ -1,46 +1,39 @@
 package com.arvion.smarthealth.ui.home
 
-import android.content.Intent
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
-import android.widget.LinearLayout
-import android.widget.ProgressBar
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.repeatOnLifecycle
+import androidx.work.Constraints
+import androidx.work.ExistingWorkPolicy
+import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import com.arvion.smarthealth.R
-import com.arvion.smarthealth.data.AuthState
 import com.arvion.smarthealth.data.AuthViewModel
 import com.arvion.smarthealth.data.UserRepository
-import com.arvion.smarthealth.database.AppDatabase
-import com.arvion.smarthealth.database.SyncLogDao
-import com.arvion.smarthealth.model.SyncType
 import com.arvion.smarthealth.service.DailySummaryService
 import com.arvion.smarthealth.service.ExerciseService
 import com.arvion.smarthealth.service.HeartRateService
 import com.arvion.smarthealth.service.SleepService
-import com.arvion.smarthealth.service.UpdateApiWorker
+import com.arvion.smarthealth.service.SyncDailySummaryWorker
 import com.arvion.smarthealth.service.api.ApiBackend
 import com.arvion.smarthealth.service.api.DailySummaryApiService
 import com.arvion.smarthealth.service.api.ExerciseApiService
 import com.arvion.smarthealth.service.api.HeartRateSeriesApiService
 import com.arvion.smarthealth.service.api.SleepApiService
 import com.auth0.android.jwt.JWT
-import com.google.android.gms.auth.api.identity.BeginSignInRequest
-import com.google.android.gms.auth.api.identity.Identity
-import com.google.android.gms.auth.api.identity.SignInClient
 import com.samsung.android.sdk.health.data.HealthDataService
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
-import java.time.LocalDate
 import java.time.LocalDateTime
 
 class HomeFragment : Fragment() {
@@ -49,35 +42,36 @@ class HomeFragment : Fragment() {
     private lateinit var sleepService: SleepService
     private lateinit var dailySummaryService: DailySummaryService
     private lateinit var heartRateService: HeartRateService
-    private lateinit var signInClient: SignInClient
 
     private lateinit var userRepository: UserRepository
     private lateinit var authViewModel: AuthViewModel
 
-    private lateinit var syncLogDao: SyncLogDao
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            Toast.makeText(requireContext(), "Notifications enabled", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
-        signInClient = Identity.getSignInClient(this.requireActivity())
         userRepository = UserRepository(this.requireContext())
         authViewModel = AuthViewModel(userRepository)
-        this.syncLogDao = AppDatabase.getDatabase(this.requireContext()).syncLogDao()
         return inflater.inflate(R.layout.fragment_home, container, false)
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        trySilentSignIn()
-        observeUserSession()
+        //scheduleBackgroundSync()
+        checkNotificationPermission()
 
         val dataStore = HealthDataService.getStore(requireActivity().applicationContext)
-        //val dateTimeToRetrieve = LocalDateTime.of(2026, 2, 8, 0, 0)
         val dateTimeToRetrieve = LocalDateTime.now()
-        AppDatabase.getDatabase(requireContext()).openHelper.writableDatabase
 
         exerciseService = ExerciseService(
             context = requireContext(),
@@ -101,245 +95,104 @@ class HomeFragment : Fragment() {
         )
 
         view.findViewById<Button>(R.id.readExerciseButton).setOnClickListener {
-            lifecycleScope.launch {
-                val metricContent = view.findViewById<LinearLayout>(R.id.metricContent)
-                val metricProgress = view.findViewById<ProgressBar>(R.id.metricProgress)
-                metricContent.visibility = View.GONE
-                metricProgress.visibility = View.VISIBLE
+            performSyncWithLoading(
+                view.findViewById(R.id.exerciseContent),
+                view.findViewById(R.id.exerciseProgress)
+            ) {
                 exerciseService.processExercises(dateTimeToRetrieve)
-                metricContent.visibility = View.VISIBLE
-                metricProgress.visibility = View.GONE
             }
         }
 
         view.findViewById<Button>(R.id.readSleepButton).setOnClickListener {
-            lifecycleScope.launch {
+            performSyncWithLoading(
+                view.findViewById(R.id.sleepContent),
+                view.findViewById(R.id.sleepProgress)
+            ) {
                 sleepService.processSleepSession(dateTimeToRetrieve)
             }
         }
 
         view.findViewById<Button>(R.id.readDailySummary).setOnClickListener {
-            lifecycleScope.launch {
+            performSyncWithLoading(
+                view.findViewById(R.id.dailySummaryContent),
+                view.findViewById(R.id.dailySummaryProgress)
+            ) {
                 dailySummaryService.processDailySummary(dateTimeToRetrieve)
             }
         }
 
-        view.findViewById<Button>(R.id.loginGoogle).setOnClickListener {
-            lifecycleScope.launch {
-                startGoogleLogin()
-            }
-        }
-
-        view.findViewById<Button>(R.id.logout).setOnClickListener {
-            lifecycleScope.launch {
-                logout()
-            }
-        }
-
         view.findViewById<Button>(R.id.readHeartRate).setOnClickListener {
-            Toast.makeText(requireContext(), "Reading heart rate...", Toast.LENGTH_SHORT).show()
-            lifecycleScope.launch {
+            performSyncWithLoading(
+                view.findViewById(R.id.heartRateContent),
+                view.findViewById(R.id.heartRateProgress)
+            ) {
                 heartRateService.processHeartRates(dateTimeToRetrieve)
             }
         }
-
-        /*
-        view.findViewById<Button>(R.id.triggerWorkerButton).setOnClickListener {
-            triggerOneTimeWorker()
-        }
-        */
-        view.findViewById<Button>(R.id.updateAll).setOnClickListener {
-            lifecycleScope.launch {
-                updateAll()
-            }
-        }
     }
 
-    private fun startGoogleLogin() {
-        val request = BeginSignInRequest.builder()
-            .setGoogleIdTokenRequestOptions(
-                BeginSignInRequest.GoogleIdTokenRequestOptions.builder()
-                    .setSupported(true)
-                    .setServerClientId(getString(R.string.default_web_client_id))
-                    .setFilterByAuthorizedAccounts(false)
-                    .build()
-            )
-            .build()
-
-        signInClient.beginSignIn(request)
-            .addOnSuccessListener { result ->
-                startIntentSenderForResult(
-                    result.pendingIntent.intentSender,
-                    1001,
-                    null,
-                    0,
-                    0,
-                    0,
-                    null
-                )
-            }
-            .addOnFailureListener {
-                // Handle failure (no Google accounts, etc.)
-            }
-    }
-
-    private fun observeUserSession() {
+    private fun performSyncWithLoading(
+        contentView: View,
+        progressView: View,
+        syncAction: suspend () -> Unit
+    ) {
         lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) {
-                authViewModel.authState.collect { state ->
-                    when (state) {
-                        is AuthState.Loading -> {
-                            Toast.makeText(requireContext(), "Loading...", Toast.LENGTH_SHORT)
-                                .show()
-                        }
+            if (!ensureValidToken()) return@launch
 
-                        is AuthState.LoggedOut -> {
-                            Toast.makeText(requireContext(), "Logged out", Toast.LENGTH_SHORT)
-                                .show()
-                        }
-
-                        is AuthState.LoggedIn -> {
-                            Toast.makeText(
-                                requireContext(),
-                                "Logged in as ${state.userId}",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    fun logout() {
-        lifecycleScope.launch {
-            userRepository.clearUser()
-            signInClient.signOut()
-        }
-    }
-
-
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-
-        if (requestCode == 1001) {
+            contentView.visibility = View.GONE
+            progressView.visibility = View.VISIBLE
             try {
-                val credential = signInClient.getSignInCredentialFromIntent(data)
-                val idToken = credential.googleIdToken
-
-                if (idToken != null) {
-                    // User successfully signed in
-                    val jwt = JWT(idToken)
-                    val googleUserId = jwt.getClaim("sub").asString()
-                    lifecycleScope.launch {
-                        userRepository.saveUserId(googleUserId ?: credential.id)
-                        userRepository.saveJwtToken(idToken) // Save the JWT token
-                    }
-                }
+                syncAction()
             } catch (e: Exception) {
-                Toast.makeText(requireContext(), "Google login failed", Toast.LENGTH_SHORT).show()
+                Toast.makeText(requireContext(), "Sync failed: ${e.message}", Toast.LENGTH_SHORT)
+                    .show()
+            } finally {
+                contentView.visibility = View.VISIBLE
+                progressView.visibility = View.GONE
             }
         }
     }
 
-    private fun trySilentSignIn() {
-        val request = BeginSignInRequest.builder()
-            .setGoogleIdTokenRequestOptions(
-                BeginSignInRequest.GoogleIdTokenRequestOptions.builder()
-                    .setSupported(true)
-                    .setServerClientId(getString(R.string.default_web_client_id))
-                    .setFilterByAuthorizedAccounts(true)
-                    .build()
-            )
-            .setAutoSelectEnabled(true)
-            .build()
-
-        signInClient.beginSignIn(request)
-            .addOnSuccessListener { result ->
-                startIntentSenderForResult(
-                    result.pendingIntent.intentSender,
-                    1001,
-                    null,
-                    0,
-                    0,
-                    0,
-                    null
-                )
-            }
-            .addOnFailureListener {
-                // Silent sign-in failed — normal on first launch
-                // DO NOT show login UI here
-            }
-    }
-
-    private fun triggerOneTimeWorker() {
-        val updateAPIWorkRequest = OneTimeWorkRequestBuilder<UpdateApiWorker>().build()
-        WorkManager.getInstance(requireActivity().applicationContext).enqueue(updateAPIWorkRequest)
-    }
-
-    suspend fun updateAll() {
-        // Prime the auth token once — eliminates runBlocking on every HTTP call
-        ApiBackend.authInterceptor.cachedToken = userRepository.getJwtToken()
-
-        val startDate = LocalDate.parse("2024-01-01")
-        val endDate = LocalDate.now()
-
-        // Pre-load the entire sync state for the date range in a single DB query,
-        // replacing ~2,000 individual per-service getSyncLog() calls.
-        val syncedSet: Set<Pair<LocalDate, SyncType>> = syncLogDao
-            .getSyncedDatesInRange(startDate, endDate)
-            .map { it.date to it.syncType }
-            .toHashSet()
-
-        val dates = generateSequence(endDate) { it.minusDays(1) }
-            .takeWhile { !it.isBefore(startDate) }
-            .toList()
-
-        for (date in dates) {
-            val dateTime = date.atStartOfDay()
-
+    private suspend fun ensureValidToken(): Boolean {
+        val token = userRepository.getJwtToken()
+        if (token == null || JWT(token).isExpired(5)) {
             Toast.makeText(
                 requireContext(),
-                "Syncing $date",
+                "Session expired. Please log in from the side menu.",
                 Toast.LENGTH_SHORT
             ).show()
+            return false
+        }
+        ApiBackend.authInterceptor.cachedToken = token
+        return true
+    }
 
-            // Run Exercise, Sleep, and HeartRate concurrently for this date.
-            // DailySummary follows after Exercise finishes so it can reuse the
-            // already-fetched exercise data (eliminates a duplicate SDK read).
-            coroutineScope {
-                val exerciseDeferred = async {
-                    if (date to SyncType.EXERCISE !in syncedSet)
-                        exerciseService.processExercises(dateTime, skipDbCheck = true)
-                    else null
-                }
-                val sleepDeferred = async {
-                    if (date to SyncType.SLEEP !in syncedSet)
-                        sleepService.processSleepSession(dateTime, skipDbCheck = true)
-                }
-                val hrDeferred = async {
-                    if (date to SyncType.HEART_RATE !in syncedSet)
-                        heartRateService.processHeartRates(dateTime, skipDbCheck = true)
-                }
+    private fun scheduleBackgroundSync() {
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build()
 
-                val exerciseData = exerciseDeferred.await()
-                sleepDeferred.await()
-                hrDeferred.await()
+        val workRequest = OneTimeWorkRequestBuilder<SyncDailySummaryWorker>()
+            .setConstraints(constraints)
+            .build()
 
-                if (date to SyncType.DAILY_SUMMARY !in syncedSet) {
-                    dailySummaryService.processDailySummary(
-                        dateTime,
-                        prefetchedExercise = exerciseData,
-                        skipDbCheck = true
-                    )
-                }
+        WorkManager.getInstance(requireContext()).enqueueUniqueWork(
+            "SyncDailySummaryRecursive",
+            ExistingWorkPolicy.KEEP,
+            workRequest
+        )
+    }
+
+    private fun checkNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(
+                    requireContext(),
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             }
         }
-
-        Toast.makeText(
-            requireContext(),
-            "FINISHED",
-            Toast.LENGTH_LONG
-        ).show()
     }
 }
+

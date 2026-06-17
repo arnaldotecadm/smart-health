@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="sync_direction_entries">
+        <item>Backward (Newest → Oldest)</item>
+        <item>Forward (Oldest → Newest)</item>
+    </string-array>
+    <string-array name="sync_direction_values">
+        <item>BACKWARD</item>
+        <item>FORWARD</item>
+    </string-array>
+</resources>
