@@ -7,6 +7,7 @@ import com.arvion.smarthealth.data.SyncConfig
 import com.arvion.smarthealth.data.SyncPreferences
 import com.arvion.smarthealth.data.SyncState
 import com.arvion.smarthealth.database.AppDatabase
+import com.arvion.smarthealth.service.SyncDailySummaryWorker
 import com.arvion.smarthealth.service.SyncForegroundService
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -66,7 +67,10 @@ class SyncViewModel(application: Application) : AndroidViewModel(application) {
     // -------------------------------------------------------------------------
 
     fun startSync() {
+        // Start the immediate foreground sync (runs while app is in foreground/background)
         context.startForegroundService(SyncForegroundService.startIntent(context))
+        // Also schedule periodic background sync so data continues syncing even after app close
+        SyncDailySummaryWorker.schedule(context)
     }
 
     fun stopSync() {

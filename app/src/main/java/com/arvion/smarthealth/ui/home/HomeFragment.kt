@@ -13,11 +13,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
-import androidx.work.Constraints
-import androidx.work.ExistingWorkPolicy
-import androidx.work.NetworkType
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.WorkManager
 import com.arvion.smarthealth.R
 import com.arvion.smarthealth.data.AuthViewModel
 import com.arvion.smarthealth.data.UserRepository
@@ -67,7 +62,6 @@ class HomeFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        //scheduleBackgroundSync()
         checkNotificationPermission()
 
         val dataStore = HealthDataService.getStore(requireActivity().applicationContext)
@@ -165,22 +159,6 @@ class HomeFragment : Fragment() {
         }
         ApiBackend.authInterceptor.cachedToken = token
         return true
-    }
-
-    private fun scheduleBackgroundSync() {
-        val constraints = Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.CONNECTED)
-            .build()
-
-        val workRequest = OneTimeWorkRequestBuilder<SyncDailySummaryWorker>()
-            .setConstraints(constraints)
-            .build()
-
-        WorkManager.getInstance(requireContext()).enqueueUniqueWork(
-            "SyncDailySummaryRecursive",
-            ExistingWorkPolicy.KEEP,
-            workRequest
-        )
     }
 
     private fun checkNotificationPermission() {

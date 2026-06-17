@@ -22,6 +22,7 @@ import com.arvion.smarthealth.service.api.ExerciseApiService
 import com.arvion.smarthealth.service.api.HeartRateSeriesApiService
 import com.arvion.smarthealth.service.api.SleepApiService
 import com.arvion.smarthealth.utils.Constants
+import com.auth0.android.jwt.JWT
 import com.samsung.android.sdk.health.data.HealthDataService
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -50,6 +51,7 @@ class SyncForegroundService : Service() {
     private var syncJob: Job? = null
 
     private lateinit var syncPreferences: SyncPreferences
+    private lateinit var userRepository: UserRepository
     private lateinit var exerciseService: ExerciseService
     private lateinit var sleepService: SleepService
     private lateinit var dailySummaryService: DailySummaryService
@@ -62,8 +64,7 @@ class SyncForegroundService : Service() {
     override fun onCreate() {
         super.onCreate()
         syncPreferences = SyncPreferences(applicationContext)
-        val db = AppDatabase.getDatabase(applicationContext)
-        val syncLogDao = db.syncLogDao()
+        userRepository = UserRepository(applicationContext)
         val healthDataStore = HealthDataService.getStore(applicationContext)
 
         exerciseService = ExerciseService(applicationContext, healthDataStore, ExerciseApiService(applicationContext))
@@ -94,45 +95,56 @@ class SyncForegroundService : Service() {
     private fun startSync() {
         if (SyncState.isSyncing.value) return
 
-        startForeground(NOTIFICATION_ID, buildNotification("Starting sync…"))
+        startForeground(NOTIFICATION_ID, buildProgressNotification("Starting sync…"))
 
         syncJob = serviceScope.launch {
-            val token = UserRepository(applicationContext).getValidToken()
+            val token = userRepository.getValidToken()
             if (token == null) {
-                SyncState.statusMessage.emit("Not signed in. Please sign in from the menu.")
-                finish()
+                finishWithStatus("Sync Stopped", "Not signed in. Please sign in from the app menu.")
                 return@launch
             }
             ApiBackend.authInterceptor.cachedToken = token
 
             SyncState.isSyncing.value = true
             SyncState.syncProgress.value = 0 to 0
+
+            var stopTitle = "Sync Complete"
+            var stopMessage = "All health data has been uploaded"
             try {
                 runSync()
-                SyncState.statusMessage.emit("Sync completed successfully")
-                updateNotification("Sync complete", null)
             } catch (e: CancellationException) {
-                SyncState.statusMessage.emit("Sync paused — will resume from last position")
+                stopTitle = "Sync Paused"
+                stopMessage = "Sync has been stopped. It will resume from the last checkpoint next time."
             } catch (e: Exception) {
                 Log.e(Constants.TAG, "Sync error", e)
-                SyncState.statusMessage.emit("Sync failed: ${e.message}")
-                updateNotification("Sync failed", null)
+                stopTitle = "Sync Stopped"
+                stopMessage = "Sync stopped due to an error: ${e.message ?: "unknown error"}"
             } finally {
                 SyncState.isSyncing.value = false
                 SyncState.currentSyncDate.value = null
                 SyncState.syncProgress.value = 0 to 0
-                finish()
+                SyncState.statusMessage.tryEmit(stopMessage)
+                finishWithStatus(stopTitle, stopMessage)
             }
         }
     }
 
     private fun stopSync() {
         syncJob?.cancel()
-        // finish() is called in the finally block of startSync's launch
+        // finishWithStatus is called from the finally block in startSync
     }
 
-    private fun finish() {
-        stopForeground(STOP_FOREGROUND_REMOVE)
+    /**
+     * Removes the foreground designation (keeping the notification visible and dismissable)
+     * then updates its content to the final status before stopping the service.
+     * This guarantees the user sees an outcome message regardless of app state.
+     */
+    private fun finishWithStatus(title: String, message: String) {
+        val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        // Detach first so the notification becomes a regular (dismissable) one
+        stopForeground(STOP_FOREGROUND_DETACH)
+        // Then update content to show the final outcome
+        nm.notify(NOTIFICATION_ID, buildStatusNotification(title, message))
         stopSelf()
     }
 
@@ -181,10 +193,26 @@ class SyncForegroundService : Service() {
                 return@forEach
             }
 
+            // Proactively refresh the token if it is within 10 minutes of expiry.
+            // This prevents auth failures mid-sync during long runs (tokens expire in 1 hour).
+            // The AuthInterceptor also handles 401 retries, but this avoids hitting the server
+            // with an expired token in the first place.
+            val cachedToken = ApiBackend.authInterceptor.cachedToken
+            if (cachedToken == null || isTokenExpiringSoon(cachedToken)) {
+                Log.i(Constants.TAG, "SyncService: token refresh needed at date $date")
+                val fresh = userRepository.getValidToken()
+                if (fresh != null) {
+                    ApiBackend.authInterceptor.cachedToken = fresh
+                    Log.i(Constants.TAG, "SyncService: token refreshed successfully")
+                } else {
+                    throw IllegalStateException("Authentication token expired and could not be refreshed. Please sign in again.")
+                }
+            }
+
             processed++
             SyncState.currentSyncDate.value = date
             SyncState.syncProgress.value = processed to total
-            updateNotification(date.toString(), processed to total)
+            updateProgressNotification(date.toString(), processed to total)
             Log.d(Constants.TAG, "SyncService: date $date ($processed/$total)")
 
             val dateTime = date.atStartOfDay()
@@ -223,36 +251,32 @@ class SyncForegroundService : Service() {
     // Notification helpers
     // -------------------------------------------------------------------------
 
-    private fun buildNotification(text: String, progress: Pair<Int, Int>? = null): android.app.Notification {
-        val tapIntent = PendingIntent.getActivity(
-            this,
-            0,
-            Intent(this, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
-            },
+    /** Returns true if [token] is null or expires within 10 minutes. */
+    private fun isTokenExpiringSoon(token: String): Boolean = try {
+        JWT(token).isExpired(600) // 10-minute buffer
+    } catch (e: Exception) {
+        true
+    }
+
+    /** Ongoing progress notification shown while sync is running. */
+    private fun buildProgressNotification(text: String, progress: Pair<Int, Int>? = null): android.app.Notification {
+        val tapIntent = openAppIntent()
+        val stopPendingIntent = PendingIntent.getService(
+            this, 1, stopIntent(this),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-
-        val stopIntent = PendingIntent.getService(
-            this,
-            1,
-            stopIntent(this),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
         val contentText = if (progress != null && progress.second > 0) {
             "$text  (${progress.first}/${progress.second})"
         } else {
             text
         }
-
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_sync)
             .setContentTitle(getString(R.string.sync_notification_title))
             .setContentText(contentText)
             .setStyle(NotificationCompat.BigTextStyle().bigText(contentText))
             .setContentIntent(tapIntent)
-            .addAction(R.drawable.ic_sync, getString(R.string.sync_notification_stop), stopIntent)
+            .addAction(R.drawable.ic_sync, getString(R.string.sync_notification_stop), stopPendingIntent)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setSilent(true)
@@ -260,10 +284,30 @@ class SyncForegroundService : Service() {
             .build()
     }
 
-    private fun updateNotification(text: String, progress: Pair<Int, Int>?) {
+    /** Dismissable outcome notification shown after sync ends (any reason). */
+    private fun buildStatusNotification(title: String, message: String): android.app.Notification =
+        NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_sync)
+            .setContentTitle(title)
+            .setContentText(message)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(message))
+            .setContentIntent(openAppIntent())
+            .setAutoCancel(true)
+            .setOngoing(false)
+            .setSilent(true)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .build()
+
+    private fun updateProgressNotification(text: String, progress: Pair<Int, Int>) {
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        nm.notify(NOTIFICATION_ID, buildNotification(text, progress))
+        nm.notify(NOTIFICATION_ID, buildProgressNotification(text, progress))
     }
+
+    private fun openAppIntent(): PendingIntent = PendingIntent.getActivity(
+        this, 0,
+        Intent(this, MainActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_SINGLE_TOP },
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    )
 
     // -------------------------------------------------------------------------
     // Companion
