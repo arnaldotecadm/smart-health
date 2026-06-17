@@ -76,7 +76,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx) // or latest stable
 
     //implementation(fileTree(mapOf("dir" to "libs", "include" to "health-data-api-1.0.0.aar")))
-    implementation(files("libs/samsung-health-data-api-1.0.0.aar"))
+    implementation(files("libs/samsung-health-data-api-1.1.0.aar"))
     implementation (libs.gson)
 
 

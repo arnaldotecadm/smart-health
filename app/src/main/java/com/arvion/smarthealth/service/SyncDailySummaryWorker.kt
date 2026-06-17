@@ -106,7 +106,7 @@ class SyncDailySummaryWorker(
             return 0
         }
 
-        Log.i(Constants.TAG, "BackgroundSync: processing ${pendingDates.size} dates")
+        Log.i(Constants.TAG, "BackgroundSync: processing up to ${pendingDates.size} dates (budget ${WORKER_TIME_BUDGET_MS / 60_000}min)")
 
         val healthDataStore = HealthDataService.getStore(applicationContext)
         val exerciseService = ExerciseService(applicationContext, healthDataStore, ExerciseApiService(applicationContext))
@@ -114,8 +114,17 @@ class SyncDailySummaryWorker(
         val heartRateService = HeartRateService(applicationContext, healthDataStore, HeartRateSeriesApiService(applicationContext))
         val dailySummaryService = DailySummaryService(applicationContext, healthDataStore, DailySummaryApiService(ApiBackend(applicationContext)))
 
+        val deadline = System.currentTimeMillis() + WORKER_TIME_BUDGET_MS
         var processed = 0
         for (date in pendingDates) {
+            // Stop before starting a new date if the time budget is exhausted.
+            // The cursor is already saved from the previous date, so the next
+            // periodic run will resume exactly here.
+            if (System.currentTimeMillis() >= deadline) {
+                Log.i(Constants.TAG, "BackgroundSync: time budget reached after $processed dates, resuming next run")
+                break
+            }
+
             // Proactively refresh token if expiring within 10 minutes
             val cachedTok = ApiBackend.authInterceptor.cachedToken
             if (cachedTok == null || isTokenExpiringSoon(cachedTok)) {
@@ -126,28 +135,30 @@ class SyncDailySummaryWorker(
 
             val dateTime = date.atStartOfDay()
 
+            // SDK_CALL_TIMEOUT_MS is generous (90 s) to let the Samsung Health SDK finish.
+            // The overall deadline above prevents total runaway even if every call is slow.
             if ((date to SyncType.EXERCISE) !in syncedKeys) {
-                withTimeoutOrNull(25_000L) {
+                withTimeoutOrNull(SDK_CALL_TIMEOUT_MS) {
                     exerciseService.processExercises(dateTime, skipDbCheck = true)
-                } ?: Log.w(Constants.TAG, "BackgroundSync: exercise timed out for $date")
+                } ?: Log.w(Constants.TAG, "BackgroundSync: exercise exceeded ${SDK_CALL_TIMEOUT_MS / 1000}s for $date")
             }
 
             if ((date to SyncType.SLEEP) !in syncedKeys) {
-                withTimeoutOrNull(25_000L) {
+                withTimeoutOrNull(SDK_CALL_TIMEOUT_MS) {
                     sleepService.processSleepSession(dateTime, skipDbCheck = true)
-                } ?: Log.w(Constants.TAG, "BackgroundSync: sleep timed out for $date")
+                } ?: Log.w(Constants.TAG, "BackgroundSync: sleep exceeded ${SDK_CALL_TIMEOUT_MS / 1000}s for $date")
             }
 
             if ((date to SyncType.HEART_RATE) !in syncedKeys) {
-                withTimeoutOrNull(25_000L) {
+                withTimeoutOrNull(SDK_CALL_TIMEOUT_MS) {
                     heartRateService.processHeartRates(dateTime, skipDbCheck = true)
-                } ?: Log.w(Constants.TAG, "BackgroundSync: heart rate timed out for $date")
+                } ?: Log.w(Constants.TAG, "BackgroundSync: heart rate exceeded ${SDK_CALL_TIMEOUT_MS / 1000}s for $date")
             }
 
             if ((date to SyncType.DAILY_SUMMARY) !in syncedKeys) {
-                withTimeoutOrNull(25_000L) {
+                withTimeoutOrNull(SDK_CALL_TIMEOUT_MS) {
                     dailySummaryService.processDailySummary(dateTime, skipDbCheck = true)
-                } ?: Log.w(Constants.TAG, "BackgroundSync: daily summary timed out for $date")
+                } ?: Log.w(Constants.TAG, "BackgroundSync: daily summary exceeded ${SDK_CALL_TIMEOUT_MS / 1000}s for $date")
             }
 
             syncPrefs.lastSyncCursor = date
@@ -165,7 +176,26 @@ class SyncDailySummaryWorker(
 
     companion object {
         const val WORK_NAME = "SmartHealthBackgroundSync"
-        private const val MAX_DATES_PER_RUN = 50
+
+        /**
+         * Maximum dates to process in one worker invocation. The [WORKER_TIME_BUDGET_MS]
+         * deadline will typically stop the loop earlier — this is a secondary memory cap.
+         */
+        private const val MAX_DATES_PER_RUN = 10
+
+        /**
+         * Total wall-clock budget for one worker run. WorkManager can kill workers that run
+         * too long; staying under 8 minutes gives a safe margin.
+         */
+        private const val WORKER_TIME_BUDGET_MS = 8 * 60 * 1000L // 8 minutes
+
+        /**
+         * Per-SDK-call timeout. 90 seconds is generous enough for the Samsung Health SDK
+         * to complete even on slower devices. Individual calls that genuinely hang (no
+         * callback ever fires) are still cancelled so the loop can continue.
+         */
+        private const val SDK_CALL_TIMEOUT_MS = 90_000L // 90 seconds
+
         private const val INTERVAL_MINUTES = 30L
 
         /**
