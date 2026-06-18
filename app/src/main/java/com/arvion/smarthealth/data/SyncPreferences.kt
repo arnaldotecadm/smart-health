@@ -3,11 +3,10 @@ package com.arvion.smarthealth.data
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.preference.PreferenceManager
+import com.arvion.smarthealth.model.SyncType
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onStart
 import java.time.LocalDate
 
 enum class SyncDirection { BACKWARD, FORWARD }
@@ -28,6 +27,8 @@ class SyncPreferences(context: Context) {
         const val KEY_SYNC_DIRECTION = "pref_sync_direction"
         const val KEY_LAST_SYNC_CURSOR = "pref_last_sync_cursor"
         val DEFAULT_OLDEST_DATE: LocalDate = LocalDate.parse("2024-01-01")
+
+        private fun cursorKey(type: SyncType) = "pref_cursor_${type.name.lowercase()}"
     }
 
     val oldestSyncDate: LocalDate
@@ -54,6 +55,21 @@ class SyncPreferences(context: Context) {
     fun clearCursor() {
         prefs.edit().remove(KEY_LAST_SYNC_CURSOR).apply()
     }
+
+    fun getCursor(type: SyncType): LocalDate? =
+        prefs.getString(cursorKey(type), null)
+            ?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+
+    fun setCursor(type: SyncType, date: LocalDate?) =
+        prefs.edit().apply {
+            if (date != null) putString(cursorKey(type), date.toString())
+            else remove(cursorKey(type))
+        }.apply()
+
+    fun clearCursor(type: SyncType) = setCursor(type, null)
+
+    fun getConfigForType(type: SyncType): SyncConfig =
+        SyncConfig(oldestSyncDate, syncDirection, getCursor(type))
 
     /** Emits Unit whenever any sync preference changes. */
     fun observeChanges(): Flow<Unit> = callbackFlow {

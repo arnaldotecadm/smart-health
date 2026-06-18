@@ -31,6 +31,9 @@ interface SyncLogDao {
     @Query("SELECT date, syncType FROM sync_log WHERE date BETWEEN :start AND :end")
     suspend fun getSyncedDatesInRange(start: LocalDate, end: LocalDate): List<SyncLogKey>
 
+    @Query("SELECT MAX(date) FROM sync_log WHERE syncType = :type")
+    fun getLatestSyncDateFlow(type: SyncType): Flow<LocalDate?>
+
     @Query("SELECT * FROM sync_log ORDER BY date DESC, dateTime DESC")
     fun getAllSyncLogs(): Flow<List<SyncLog>>
 }

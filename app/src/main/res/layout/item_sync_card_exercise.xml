@@ -14,7 +14,6 @@
         android:orientation="horizontal"
         android:padding="16dp">
 
-        <!-- Left -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -22,6 +21,7 @@
             android:orientation="vertical">
 
             <TextView
+                android:id="@+id/exerciseStatusLabel"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/up_to_date"
@@ -38,24 +38,40 @@
                 android:textStyle="bold" />
 
             <TextView
+                android:id="@+id/exerciseLastSyncedText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/last_synced"
                 android:textColor="?colorOnSurfaceVariant"
                 android:textSize="12sp" />
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/readExerciseButton"
-                style="?attr/materialButtonOutlinedStyle"
+            <LinearLayout
                 android:layout_width="wrap_content"
-                android:layout_height="36dp"
+                android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:text="@string/sync"
-                app:cornerRadius="8dp"
-                app:icon="@drawable/ic_refresh" />
+                android:orientation="horizontal">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/readExerciseButton"
+                    style="?attr/materialButtonOutlinedStyle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:text="@string/sync"
+                    app:cornerRadius="8dp"
+                    app:icon="@drawable/ic_refresh" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/stopExerciseButton"
+                    style="?attr/materialButtonOutlinedStyle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:layout_marginStart="8dp"
+                    android:text="@string/stop"
+                    android:visibility="gone"
+                    app:cornerRadius="8dp" />
+            </LinearLayout>
         </LinearLayout>
 
-        <!-- Right Metric -->
         <FrameLayout
             android:layout_width="96dp"
             android:layout_height="match_parent"
