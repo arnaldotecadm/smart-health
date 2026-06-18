@@ -29,10 +29,13 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.yield
 import java.time.LocalDate
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Foreground service that runs the full health-data sync in a persistent process.
@@ -78,10 +81,27 @@ class SyncForegroundService : Service() {
             ACTION_START -> startSync()
             ACTION_STOP -> stopSync()
         }
-        return START_NOT_STICKY
+        // START_STICKY: if the process is killed (e.g. OEM memory pressure after clearing
+        // from recents), Android will restart the service and re-deliver a null intent.
+        // Combined with stopWithTask="false" in the manifest, this keeps sync alive
+        // even when the user swipes the app away from the recents screen.
+        return START_STICKY
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    /**
+     * Called when the user swipes the app away from recents.
+     * Re-enqueue a START action so the service resumes after Android restarts the process.
+     * Only re-starts if a sync was actually in progress when the task was removed.
+     */
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        if (SyncState.isSyncing.value) {
+            Log.i(Constants.TAG, "SyncService: task removed while syncing — re-scheduling start")
+            startService(startIntent(this))
+        }
+        super.onTaskRemoved(rootIntent)
+    }
 
     override fun onDestroy() {
         job.cancel()
@@ -184,22 +204,24 @@ class SyncForegroundService : Service() {
         SyncState.syncProgress.value = 0 to total
 
         var processed = 0
-        allDates.forEach { date ->
+        // Process 3 dates at a time. Each batch runs all dates concurrently, and within
+        // each date Exercise+Sleep+HeartRate are themselves run in parallel so a single
+        // batch of 3 has up to 9 independent Samsung Health SDK calls in-flight at once.
+        // Daily Summary runs after Exercise per-date so it can reuse the fetched exercise data.
+        allDates.chunked(3).forEach { batch ->
             yield()
 
-            val needsSync = allTypes.any { type -> (date to type) !in syncedKeys }
-            if (!needsSync) {
-                syncPreferences.lastSyncCursor = date
+            val batchNeedsSync = batch.any { date -> allTypes.any { type -> (date to type) !in syncedKeys } }
+            if (!batchNeedsSync) {
+                syncPreferences.lastSyncCursor = batch.last()
                 return@forEach
             }
 
-            // Proactively refresh the token if it is within 10 minutes of expiry.
-            // This prevents auth failures mid-sync during long runs (tokens expire in 1 hour).
-            // The AuthInterceptor also handles 401 retries, but this avoids hitting the server
-            // with an expired token in the first place.
+            // Token refresh once per batch (tokens expire in ~1 hour; check at every batch
+            // boundary so we never hit the server mid-batch with a stale token).
             val cachedToken = ApiBackend.authInterceptor.cachedToken
             if (cachedToken == null || isTokenExpiringSoon(cachedToken)) {
-                Log.i(Constants.TAG, "SyncService: token refresh needed at date $date")
+                Log.i(Constants.TAG, "SyncService: token refresh needed at batch ${batch.first()}–${batch.last()}")
                 val fresh = userRepository.getValidToken()
                 if (fresh != null) {
                     ApiBackend.authInterceptor.cachedToken = fresh
@@ -209,39 +231,46 @@ class SyncForegroundService : Service() {
                 }
             }
 
-            processed++
-            SyncState.currentSyncDate.value = date
+            val batchPending = batch.count { date -> allTypes.any { type -> (date to type) !in syncedKeys } }
+            processed += batchPending
+            val rangeLabel = if (batch.size == 1) batch.first().toString() else "${batch.first()} – ${batch.last()}"
+            SyncState.currentSyncDate.value = batch.first()
             SyncState.syncProgress.value = processed to total
-            updateProgressNotification(date.toString(), processed to total)
-            Log.d(Constants.TAG, "SyncService: date $date ($processed/$total)")
+            updateProgressNotification(rangeLabel, processed to total)
+            Log.d(Constants.TAG, "SyncService: batch $rangeLabel ($processed/$total)")
 
-            val dateTime = date.atStartOfDay()
+            // One SDK call per service type covers all 3 dates. Exercise, Sleep and HeartRate
+            // run concurrently. Daily Summary follows with prefetched exercise data so it
+            // makes zero extra exercise or sleep-score SDK reads.
+            supervisorScope {
+                val exerciseDeferred = async {
+                    withTimeoutOrNull(90.seconds) {
+                        exerciseService.processBatch(batch, syncedKeys)
+                    }.also { if (it == null) Log.w(Constants.TAG, "SyncService: exercise batch timed out for $rangeLabel") }
+                        ?: emptyMap()
+                }
 
-            if ((date to SyncType.EXERCISE) !in syncedKeys) {
-                withTimeoutOrNull(30_000L) {
-                    exerciseService.processExercises(dateTime, skipDbCheck = true)
-                } ?: Log.w(Constants.TAG, "SyncService: exercise timed out for $date")
+                val sleepJob = launch {
+                    withTimeoutOrNull(90.seconds) {
+                        sleepService.processBatch(batch, syncedKeys)
+                    } ?: Log.w(Constants.TAG, "SyncService: sleep batch timed out for $rangeLabel")
+                }
+
+                launch {
+                    withTimeoutOrNull(90.seconds) {
+                        heartRateService.processBatch(batch, syncedKeys)
+                    } ?: Log.w(Constants.TAG, "SyncService: heart rate batch timed out for $rangeLabel")
+                }
+
+                val exerciseByDate = exerciseDeferred.await()
+                sleepJob.join()
+
+                withTimeoutOrNull(90.seconds) {
+                    dailySummaryService.processBatch(batch, syncedKeys, exerciseByDate)
+                } ?: Log.w(Constants.TAG, "SyncService: daily summary batch timed out for $rangeLabel")
             }
 
-            if ((date to SyncType.SLEEP) !in syncedKeys) {
-                withTimeoutOrNull(30_000L) {
-                    sleepService.processSleepSession(dateTime, skipDbCheck = true)
-                } ?: Log.w(Constants.TAG, "SyncService: sleep timed out for $date")
-            }
-
-            if ((date to SyncType.HEART_RATE) !in syncedKeys) {
-                withTimeoutOrNull(30_000L) {
-                    heartRateService.processHeartRates(dateTime, skipDbCheck = true)
-                } ?: Log.w(Constants.TAG, "SyncService: heart rate timed out for $date")
-            }
-
-            if ((date to SyncType.DAILY_SUMMARY) !in syncedKeys) {
-                withTimeoutOrNull(30_000L) {
-                    dailySummaryService.processDailySummary(dateTime, skipDbCheck = true)
-                } ?: Log.w(Constants.TAG, "SyncService: daily summary timed out for $date")
-            }
-
-            syncPreferences.lastSyncCursor = date
+            syncPreferences.lastSyncCursor = batch.last()
         }
 
         syncPreferences.clearCursor()

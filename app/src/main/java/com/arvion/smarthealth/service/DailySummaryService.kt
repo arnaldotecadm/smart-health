@@ -17,8 +17,10 @@ import com.samsung.android.sdk.health.data.request.LocalTimeFilter
 import com.samsung.android.sdk.health.data.request.Ordering
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
+import java.time.ZoneId
 import java.time.ZoneOffset
 
 class DailySummaryService(
@@ -34,19 +36,22 @@ class DailySummaryService(
      *
      * @param prefetchedExercise Exercise data already fetched by [ExerciseService] for this date.
      *                           When provided, avoids a duplicate Samsung Health SDK read.
+     * @param prefetchedSleepScore Sleep score already extracted from a range read.
+     *                              When provided, avoids a duplicate Samsung Health SDK read.
      * @param skipDbCheck When true, skips the per-date DB deduplication check (caller
      *                    guarantees this date has not been synced yet, e.g. via bulk pre-load).
      */
     suspend fun processDailySummary(
         dateTime: LocalDateTime,
         prefetchedExercise: List<HealthDataPoint>? = null,
+        prefetchedSleepScore: Long? = null,
         skipDbCheck: Boolean = false
     ) {
         val date = dateTime.toLocalDate()
         val alreadySynced =
             !skipDbCheck && syncLogDao.getSyncLog(date, SyncType.DAILY_SUMMARY) != null
         if (!alreadySynced) {
-            val data = readData(dateTime, prefetchedExercise)
+            val data = readData(dateTime, prefetchedExercise, prefetchedSleepScore)
             val returnAPI = sendDataToAPI(data)
             if (returnAPI) {
                 syncLogDao.insert(
@@ -70,22 +75,86 @@ class DailySummaryService(
     }
 
     /**
+     * Syncs daily summaries for all [dates] using prefetched exercise and sleep data,
+     * avoiding redundant SDK calls for those types.
+     * Sleep scores for all pending dates are fetched in a single range SDK call.
+     * Per-day aggregate metrics (steps, calories, distance, active time) still require
+     * individual SDK aggregate calls since the Samsung Health SDK does not bucket
+     * multi-day aggregate filters.
+     */
+    suspend fun processBatch(
+        dates: List<LocalDate>,
+        syncedKeys: Set<Pair<LocalDate, SyncType>>,
+        prefetchedExerciseByDate: Map<LocalDate, List<HealthDataPoint>> = emptyMap()
+    ) {
+        val pendingDates = dates.filter { (it to SyncType.DAILY_SUMMARY) !in syncedKeys }
+        if (pendingDates.isEmpty()) return
+
+        // Fetch sleep scores for all dates in a single SDK call.
+        // (The raw SDK object holds SLEEP_SCORE; the mapped SleepSession model does not,
+        //  so we cannot reuse prefetchedSleepByDate for this.)
+        val sleepScoresByDate: Map<LocalDate, Long> =
+            readSleepScoresForRange(dates.min(), dates.max())
+
+        pendingDates.forEach { date ->
+            val dateTime = date.atStartOfDay()
+            val data = readData(
+                dateTime,
+                prefetchedExercise = prefetchedExerciseByDate[date],
+                prefetchedSleepScore = sleepScoresByDate[date]
+            )
+            if (sendDataToAPI(data)) {
+                syncLogDao.insert(SyncLog(
+                    date = date,
+                    syncType = SyncType.DAILY_SUMMARY,
+                    dateTime = LocalDateTime.now(),
+                    totalRecords = 1
+                ))
+                Log.d(TAG, "Daily summary sync successful for $date")
+            } else {
+                Log.e(TAG, "Daily summary sync failed for $date: API returned unsuccessful response")
+            }
+        }
+    }
+
+    /**
+     * Fetches sleep scores for [startDate]–[endDate] in a single SDK call.
+     * Returns a map of local date → sleep score (0 when no record exists for that date).
+     */
+    suspend fun readSleepScoresForRange(startDate: LocalDate, endDate: LocalDate): Map<LocalDate, Long> {
+        val localtimeFilter = LocalTimeFilter.of(startDate.atTime(LocalTime.MIN), endDate.atTime(LocalTime.MAX))
+        val readDataRequest = DataTypes.SLEEP.readDataRequestBuilder
+            .setLocalTimeFilter(localtimeFilter)
+            .setOrdering(Ordering.DESC)
+            .build()
+        return healthDataStore.readData(readDataRequest).dataList
+            .groupBy { sdkPoint ->
+                sdkPoint.startTime.atZone(ZoneId.systemDefault()).toLocalDate()
+            }
+            .mapValues { (_, points) ->
+                (points.firstOrNull()?.getValue(DataType.SleepType.SLEEP_SCORE) ?: 0).toLong()
+            }
+    }
+
+    /**
      * Reads all data required to build a [DailySummary].
      *
-     * All 7 Samsung Health SDK calls run concurrently via [async]. When [prefetchedExercise]
-     * is supplied (already fetched by [ExerciseService] earlier in the same sync cycle), the
-     * duplicate exercise SDK read is skipped entirely.
+     * Aggregate metrics (steps, calories, distance, active time) run concurrently via [async].
+     * When [prefetchedExercise] is supplied the exercise SDK read is skipped entirely.
+     * When [prefetchedSleepScore] is supplied the sleep SDK read is skipped entirely.
      */
     suspend fun readData(
         dateTime: LocalDateTime,
-        prefetchedExercise: List<HealthDataPoint>? = null
+        prefetchedExercise: List<HealthDataPoint>? = null,
+        prefetchedSleepScore: Long? = null
     ): DailySummary = coroutineScope {
         val stepsDeferred = async { readTotalSteps(dateTime) }
         val activeTimeDeferred = async { readTotalActiveTimeInMinutes(dateTime) }
         val exerciseCalDeferred = async { readTotalActiveCaloriesBurned(dateTime) }
         val totalCalDeferred = async { readTotalCaloriesBurned(dateTime) }
         val distanceDeferred = async { readTotalDistance(dateTime) }
-        val sleepScoreDeferred = async { readSleepScore(dateTime) }
+        val sleepScoreDeferred = if (prefetchedSleepScore != null) null
+                                 else async { readSleepScore(dateTime) }
 
         DailySummary(
             userId = 0L,
@@ -95,7 +164,7 @@ class DailySummaryService(
             exerciseCalories = exerciseCalDeferred.await(),
             totalBurnedCalories = totalCalDeferred.await(),
             distanceWhileActive = distanceDeferred.await(),
-            sleepScore = sleepScoreDeferred.await()
+            sleepScore = prefetchedSleepScore ?: (sleepScoreDeferred?.await() ?: 0L)
         )
     }
 

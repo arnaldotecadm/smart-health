@@ -22,6 +22,9 @@ import com.arvion.smarthealth.service.api.SleepApiService
 import com.arvion.smarthealth.utils.Constants
 import com.auth0.android.jwt.JWT
 import com.samsung.android.sdk.health.data.HealthDataService
+import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.withTimeoutOrNull
 import java.time.LocalDate
 import java.util.concurrent.TimeUnit
@@ -116,16 +119,16 @@ class SyncDailySummaryWorker(
 
         val deadline = System.currentTimeMillis() + WORKER_TIME_BUDGET_MS
         var processed = 0
-        for (date in pendingDates) {
-            // Stop before starting a new date if the time budget is exhausted.
-            // The cursor is already saved from the previous date, so the next
-            // periodic run will resume exactly here.
+        // Process 3 dates per batch — each batch launches all dates concurrently.
+        // The time-budget check runs between batches so we never start a new batch
+        // that would exceed the WorkManager 8-minute deadline.
+        for (batch in pendingDates.chunked(3)) {
             if (System.currentTimeMillis() >= deadline) {
                 Log.i(Constants.TAG, "BackgroundSync: time budget reached after $processed dates, resuming next run")
                 break
             }
 
-            // Proactively refresh token if expiring within 10 minutes
+            // Token refresh once per batch
             val cachedTok = ApiBackend.authInterceptor.cachedToken
             if (cachedTok == null || isTokenExpiringSoon(cachedTok)) {
                 val fresh = UserRepository(applicationContext).getValidToken()
@@ -133,36 +136,41 @@ class SyncDailySummaryWorker(
                 ApiBackend.authInterceptor.cachedToken = fresh
             }
 
-            val dateTime = date.atStartOfDay()
+            Log.d(Constants.TAG, "BackgroundSync: batch ${batch.first()}–${batch.last()} ($processed processed so far)")
 
-            // SDK_CALL_TIMEOUT_MS is generous (90 s) to let the Samsung Health SDK finish.
-            // The overall deadline above prevents total runaway even if every call is slow.
-            if ((date to SyncType.EXERCISE) !in syncedKeys) {
+            // One SDK call per service covers all dates in the batch.
+            // Exercise, Sleep and HeartRate run concurrently. Daily Summary
+            // follows with the exercise results already in hand.
+            supervisorScope {
+                val exerciseDeferred = async {
+                    withTimeoutOrNull(SDK_CALL_TIMEOUT_MS) {
+                        exerciseService.processBatch(batch, syncedKeys)
+                    }.also { if (it == null) Log.w(Constants.TAG, "BackgroundSync: exercise batch exceeded ${SDK_CALL_TIMEOUT_MS / 1000}s for ${batch.first()}–${batch.last()}") }
+                        ?: emptyMap()
+                }
+
+                val sleepJob = launch {
+                    withTimeoutOrNull(SDK_CALL_TIMEOUT_MS) {
+                        sleepService.processBatch(batch, syncedKeys)
+                    } ?: Log.w(Constants.TAG, "BackgroundSync: sleep batch exceeded ${SDK_CALL_TIMEOUT_MS / 1000}s for ${batch.first()}–${batch.last()}")
+                }
+
+                launch {
+                    withTimeoutOrNull(SDK_CALL_TIMEOUT_MS) {
+                        heartRateService.processBatch(batch, syncedKeys)
+                    } ?: Log.w(Constants.TAG, "BackgroundSync: heart rate batch exceeded ${SDK_CALL_TIMEOUT_MS / 1000}s for ${batch.first()}–${batch.last()}")
+                }
+
+                val exerciseByDate = exerciseDeferred.await()
+                sleepJob.join()
+
                 withTimeoutOrNull(SDK_CALL_TIMEOUT_MS) {
-                    exerciseService.processExercises(dateTime, skipDbCheck = true)
-                } ?: Log.w(Constants.TAG, "BackgroundSync: exercise exceeded ${SDK_CALL_TIMEOUT_MS / 1000}s for $date")
+                    dailySummaryService.processBatch(batch, syncedKeys, exerciseByDate)
+                } ?: Log.w(Constants.TAG, "BackgroundSync: daily summary batch exceeded ${SDK_CALL_TIMEOUT_MS / 1000}s for ${batch.first()}–${batch.last()}")
             }
 
-            if ((date to SyncType.SLEEP) !in syncedKeys) {
-                withTimeoutOrNull(SDK_CALL_TIMEOUT_MS) {
-                    sleepService.processSleepSession(dateTime, skipDbCheck = true)
-                } ?: Log.w(Constants.TAG, "BackgroundSync: sleep exceeded ${SDK_CALL_TIMEOUT_MS / 1000}s for $date")
-            }
-
-            if ((date to SyncType.HEART_RATE) !in syncedKeys) {
-                withTimeoutOrNull(SDK_CALL_TIMEOUT_MS) {
-                    heartRateService.processHeartRates(dateTime, skipDbCheck = true)
-                } ?: Log.w(Constants.TAG, "BackgroundSync: heart rate exceeded ${SDK_CALL_TIMEOUT_MS / 1000}s for $date")
-            }
-
-            if ((date to SyncType.DAILY_SUMMARY) !in syncedKeys) {
-                withTimeoutOrNull(SDK_CALL_TIMEOUT_MS) {
-                    dailySummaryService.processDailySummary(dateTime, skipDbCheck = true)
-                } ?: Log.w(Constants.TAG, "BackgroundSync: daily summary exceeded ${SDK_CALL_TIMEOUT_MS / 1000}s for $date")
-            }
-
-            syncPrefs.lastSyncCursor = date
-            processed++
+            syncPrefs.lastSyncCursor = batch.last()
+            processed += batch.size
         }
 
         return processed

@@ -17,8 +17,10 @@ import com.samsung.android.sdk.health.data.request.Ordering
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
+import java.time.ZoneId
 
 class HeartRateService(
     context: Context,
@@ -82,13 +84,68 @@ class HeartRateService(
         return dataList.toModel(dataType = DataTypes.HEART_RATE)
     }
 
+    /** Fetches heart rate data for [startDate]–[endDate] in a single SDK call, grouped by local start date. */
+    suspend fun readDataForRange(startDate: LocalDate, endDate: LocalDate): Map<LocalDate, List<HealthDataPoint>> {
+        val localtimeFilter = LocalTimeFilter.of(startDate.atTime(LocalTime.MIN), endDate.atTime(LocalTime.MAX))
+        val readDataRequest = DataTypes.HEART_RATE.readDataRequestBuilder
+            .setLocalTimeFilter(localtimeFilter)
+            .setOrdering(Ordering.DESC)
+            .build()
+        return healthDataStore.readData(readDataRequest).dataList
+            .filter { it.getValue(DataType.HeartRateType.SERIES_DATA)?.isNotEmpty() ?: false }
+            .toModel(dataType = DataTypes.HEART_RATE)
+            .groupBy { point -> point.startTime.atZone(ZoneId.systemDefault()).toLocalDate() }
+    }
+
+    /**
+     * Syncs heart rate data for all [dates] with a single Samsung Health SDK call.
+     * Only dates absent from [syncedKeys] are sent to the API.
+     */
+    suspend fun processBatch(
+        dates: List<LocalDate>,
+        syncedKeys: Set<Pair<LocalDate, SyncType>>
+    ) {
+        val pendingDates = dates.filter { (it to SyncType.HEART_RATE) !in syncedKeys }
+        if (pendingDates.isEmpty()) return
+
+        val byDate = readDataForRange(dates.min(), dates.max())
+
+        pendingDates.forEach { date ->
+            val data = byDate[date].orEmpty()
+            if (data.isEmpty()) {
+                Log.d(TAG, "No heart rate data for $date, skipping.")
+                return@forEach
+            }
+            val batches = data.chunked(1_000)
+            val results = coroutineScope {
+                batches.mapIndexed { index, batch ->
+                    async {
+                        runCatching { sendToApi(batch) }
+                            .onFailure { Log.e(TAG, "Heart rate batch ${index + 1}/${batches.size} failed for $date: ${it.message}") }
+                            .getOrDefault(false)
+                    }
+                }.awaitAll()
+            }
+            if (results.all { it }) {
+                syncLogDao.insert(SyncLog(
+                    date = date,
+                    syncType = SyncType.HEART_RATE,
+                    dateTime = LocalDateTime.now(),
+                    totalRecords = results.size
+                ))
+            } else {
+                Log.e(TAG, "Heart rate sync failed for $date: ${results.count { !it }}/${results.size} batches not accepted by API")
+            }
+        }
+    }
+
     suspend fun sendToApi(data: List<HealthDataPoint>): Boolean {
         if (data.isEmpty()) return true
         
         // Heart rate data is extremely verbose. We chunk it into smaller batches
         // and send them sequentially to avoid overwhelming the network/server
         // or hitting memory limits during serialization.
-        val chunks = data.chunked(200) 
+        val chunks = data.chunked(500)
         var allSuccess = true
         
         for (chunk in chunks) {

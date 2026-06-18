@@ -13,8 +13,10 @@ import com.samsung.android.sdk.health.data.HealthDataStore
 import com.samsung.android.sdk.health.data.request.DataTypes
 import com.samsung.android.sdk.health.data.request.LocalTimeFilter
 import com.samsung.android.sdk.health.data.request.Ordering
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
+import java.time.ZoneId
 
 class ExerciseService(
     context: Context,
@@ -79,7 +81,58 @@ class ExerciseService(
         return dataList.toModel(dataType = DataTypes.EXERCISE)
     }
 
+    /**
+     * Fetches exercise data for [startDate]–[endDate] in a single SDK call.
+     * Returns records grouped by their local start date.
+     */
+    suspend fun readDataForRange(startDate: LocalDate, endDate: LocalDate): Map<LocalDate, List<HealthDataPoint>> {
+        val localtimeFilter = LocalTimeFilter.of(startDate.atTime(LocalTime.MIN), endDate.atTime(LocalTime.MAX))
+        val readDataRequest = DataTypes.EXERCISE.readDataRequestBuilder
+            .setLocalTimeFilter(localtimeFilter)
+            .setOrdering(Ordering.DESC)
+            .build()
+        return healthDataStore.readData(readDataRequest).dataList
+            .toModel(dataType = DataTypes.EXERCISE)
+            .groupBy { point -> point.startTime.atZone(ZoneId.systemDefault()).toLocalDate() }
+    }
+
+    /**
+     * Syncs exercise data for all [dates] with a single Samsung Health SDK call.
+     * Only dates absent from [syncedKeys] are sent to the API.
+     * Returns data grouped by date so callers (e.g. [DailySummaryService]) can reuse it.
+     */
+    suspend fun processBatch(
+        dates: List<LocalDate>,
+        syncedKeys: Set<Pair<LocalDate, SyncType>>
+    ): Map<LocalDate, List<HealthDataPoint>> {
+        val pendingDates = dates.filter { (it to SyncType.EXERCISE) !in syncedKeys }
+        if (pendingDates.isEmpty()) return emptyMap()
+
+        val byDate = readDataForRange(dates.min(), dates.max())
+
+        pendingDates.forEach { date ->
+            val data = byDate[date].orEmpty()
+            if (data.isEmpty()) {
+                Log.d(TAG, "No exercise data for $date, skipping.")
+                return@forEach
+            }
+            val results = sendDataToAPI(data)
+            if (results.all { it }) {
+                syncLogDao.insert(SyncLog(
+                    date = date,
+                    syncType = SyncType.EXERCISE,
+                    dateTime = LocalDateTime.now(),
+                    totalRecords = results.size
+                ))
+            } else {
+                Log.e(TAG, "Exercise sync failed for $date: ${results.count { !it }}/${results.size} records not accepted by API")
+            }
+        }
+        return byDate
+    }
+
     suspend fun sendDataToAPI(data: List<HealthDataPoint>): List<Boolean> {
+        Log.d(TAG, "Sending ${data.size} exercise records to API")
         return exerciseApiService.sendListToApi(data)
     }
 }
